@@ -1,0 +1,1236 @@
+import {
+	blendModeOptions,
+	borderStyleOptions,
+	createControlField,
+	createControlFamily,
+	createControlSection,
+	directionOptions,
+	displayOptions,
+	positionOptions,
+	typographyTransformOptions,
+	visibilityOptions,
+} from './control-family-helpers.ts';
+import type { BuilderControlFamilyDefinition, BuilderControlSectionDefinition } from './control-family-helpers.ts';
+import {
+	createChooseField,
+	createColorField,
+	createDimensionsField,
+	createFilterField,
+	createMediaField,
+	createSelectField,
+	createShadowField,
+	createSliderField,
+	createSwitcherField,
+	createTabsField,
+} from './control-primitives.ts';
+
+const backgroundTypeOptions = [
+	{ label: 'Classic', value: 'classic' },
+	{ label: 'Gradient', value: 'gradient' },
+	{ label: 'Video', value: 'video' },
+	{ label: 'Slideshow', value: 'slideshow' },
+];
+
+const objectFitOptions = [
+	{ label: 'Cover', value: 'cover' },
+	{ label: 'Contain', value: 'contain' },
+	{ label: 'Fill', value: 'fill' },
+	{ label: 'Scale Down', value: 'scale-down' },
+];
+
+const animationOptions = [
+	{ label: 'None', value: 'none' },
+	{ label: 'Fade In', value: 'fade-in' },
+	{ label: 'Slide In', value: 'slide-in' },
+	{ label: 'Zoom In', value: 'zoom-in' },
+	{ label: 'Fade Up', value: 'fade-up' },
+];
+
+const alignmentOptions = [
+	{ label: 'Start', value: 'start' },
+	{ label: 'Center', value: 'center' },
+	{ label: 'End', value: 'end' },
+	{ label: 'Stretch', value: 'stretch' },
+];
+
+const textAlignChoiceOptions = [
+	{ label: 'Start', value: 'start', icon: 'align-left' },
+	{ label: 'Center', value: 'center', icon: 'align-center' },
+	{ label: 'End', value: 'end', icon: 'align-right' },
+	{ label: 'Justify', value: 'justify', icon: 'align-justify' },
+];
+
+const stateTabsItems = [
+	{ id: 'normal', label: 'Normal' },
+	{ id: 'hover', label: 'Hover' },
+	{ id: 'active', label: 'Active' },
+	{ id: 'focus', label: 'Focus' },
+	{ id: 'disabled', label: 'Disabled' },
+];
+
+export const STYLE_CONTROL_FAMILIES: BuilderControlFamilyDefinition[] = [
+	createControlFamily(
+		'background',
+		'Background',
+		'style',
+		[
+			createControlSection(
+				'background-paint',
+				'Background',
+				'style',
+				[
+					createSelectField( 'backgroundType', 'Type', 'style.background.type', backgroundTypeOptions ),
+					createColorField( 'backgroundColor', 'Color', 'style.background.color', { responsive: true, stateful: true, tokenAware: true } ),
+					createControlField( 'backgroundGradient', 'Gradient', 'text', 'style.background.gradient', { responsive: true, stateful: true } ),
+					createMediaField( 'backgroundImage', 'Image', 'style.background.image', { assetType: 'image', responsive: true } ),
+					createControlField( 'backgroundPosition', 'Position', 'text', 'style.background.position', { responsive: true } ),
+					createControlField( 'backgroundSize', 'Size', 'text', 'style.background.size', { responsive: true } ),
+					createSelectField( 'backgroundRepeat', 'Repeat', 'style.background.repeat', [
+						{ label: 'No Repeat', value: 'no-repeat' },
+						{ label: 'Repeat', value: 'repeat' },
+						{ label: 'Repeat X', value: 'repeat-x' },
+						{ label: 'Repeat Y', value: 'repeat-y' },
+					] ),
+				],
+				{ familyId: 'background', groupId: 'paint', order: 10 },
+			),
+			createControlSection(
+				'background-overlay',
+				'Overlay',
+				'style',
+				[
+					createColorField( 'backgroundOverlayColor', 'Overlay Color', 'style.background.overlayColor', { responsive: true, stateful: true, tokenAware: true } ),
+					createSelectField( 'backgroundOverlayBlendMode', 'Blend Mode', 'style.background.overlayBlendMode', blendModeOptions, { responsive: true } ),
+				],
+				{ familyId: 'background', groupId: 'overlay', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'typography',
+		'Typography',
+		'style',
+		[
+			createControlSection(
+				'typography-base',
+				'Typography',
+				'style',
+				[
+					createSelectField( 'fontFamily', 'Font Family', 'style.typography.fontFamily', [
+						{ label: 'Inherit', value: 'inherit' },
+						{ label: 'Sans Serif', value: 'sans-serif' },
+						{ label: 'Serif', value: 'serif' },
+						{ label: 'Monospace', value: 'monospace' },
+					], { responsive: true } ),
+					createSliderField( 'fontSize', 'Font Size', 'style.typography.fontSize', {
+						min: 0,
+						max: 128,
+						step: 1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: 'rem', value: 'rem', shortLabel: 'rem' },
+							{ label: 'em', value: 'em', shortLabel: 'em' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+						tokenAware: true,
+					} ),
+					createSliderField( 'fontWeight', 'Font Weight', 'style.typography.fontWeight', {
+						min: 100,
+						max: 900,
+						step: 100,
+						showUnit: false,
+						responsive: true,
+					} ),
+					createSliderField( 'lineHeight', 'Line Height', 'style.typography.lineHeight', {
+						min: 0,
+						max: 4,
+						step: 0.1,
+						showUnit: false,
+						showReset: true,
+						responsive: true,
+					} ),
+					createSliderField( 'letterSpacing', 'Letter Spacing', 'style.typography.letterSpacing', {
+						min: -5,
+						max: 20,
+						step: 0.1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: 'em', value: 'em', shortLabel: 'em' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'wordSpacing', 'Word Spacing', 'style.typography.wordSpacing', {
+						min: -5,
+						max: 40,
+						step: 0.5,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: 'em', value: 'em', shortLabel: 'em' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSelectField( 'textTransform', 'Transform', 'style.typography.textTransform', typographyTransformOptions, { responsive: true } ),
+					createSelectField( 'textDecoration', 'Decoration', 'style.typography.textDecoration', [
+						{ label: 'None', value: 'none' },
+						{ label: 'Underline', value: 'underline' },
+						{ label: 'Line Through', value: 'line-through' },
+					], { responsive: true } ),
+				],
+				{ familyId: 'typography', groupId: 'base', order: 10 },
+			),
+			createControlSection(
+				'typography-layout',
+				'Text Layout',
+				'style',
+				[
+					createChooseField( 'textAlign', 'Alignment', 'style.typography.textAlign', textAlignChoiceOptions, {
+						layout: 'inline',
+						iconPosition: 'top',
+						presentation: 'icon-label',
+						columns: 4,
+						responsive: true,
+					} ),
+					createSelectField( 'whiteSpace', 'White Space', 'style.typography.whiteSpace', [
+						{ label: 'Normal', value: 'normal' },
+						{ label: 'No Wrap', value: 'nowrap' },
+						{ label: 'Pre', value: 'pre' },
+						{ label: 'Pre Wrap', value: 'pre-wrap' },
+					], { responsive: true } ),
+					createControlField( 'maxWidth', 'Max Width', 'text', 'style.typography.maxWidth', { responsive: true } ),
+				],
+				{ familyId: 'typography', groupId: 'layout', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'border',
+		'Border',
+		'style',
+		[
+			createControlSection(
+				'border-surface',
+				'Border',
+				'style',
+				[
+					createSelectField( 'borderStyle', 'Style', 'style.border.style', borderStyleOptions, { responsive: true } ),
+					createSliderField( 'borderWidth', 'Width', 'style.border.width', {
+						min: 0,
+						max: 20,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createColorField( 'borderColor', 'Color', 'style.border.color', { responsive: true, stateful: true, tokenAware: true } ),
+					createDimensionsField( 'borderRadius', 'Radius', 'style.border.radius', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+						tokenAware: true,
+					} ),
+				],
+				{ familyId: 'border', groupId: 'surface', order: 10 },
+			),
+			createControlSection(
+				'border-side',
+				'Sides',
+				'style',
+				[
+					createControlField( 'borderTop', 'Top', 'text', 'style.border.top', { responsive: true } ),
+					createControlField( 'borderRight', 'Right', 'text', 'style.border.right', { responsive: true } ),
+					createControlField( 'borderBottom', 'Bottom', 'text', 'style.border.bottom', { responsive: true } ),
+					createControlField( 'borderLeft', 'Left', 'text', 'style.border.left', { responsive: true } ),
+				],
+				{ familyId: 'border', groupId: 'sides', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'effects',
+		'Effects',
+		'style',
+		[
+			createControlSection(
+				'effects-shadow',
+				'Shadow',
+				'style',
+				[
+					createShadowField( 'boxShadow', 'Box Shadow', 'style.effects.boxShadow', {
+						preset: 'box',
+						responsive: true,
+						stateful: true,
+						tokenAware: true,
+					} ),
+					createShadowField( 'textShadow', 'Text Shadow', 'style.effects.textShadow', {
+						preset: 'text',
+						controls: [ 'x', 'y', 'blur', 'color' ],
+						responsive: true,
+						stateful: true,
+						tokenAware: true,
+					} ),
+					createSliderField( 'opacity', 'Opacity', 'style.effects.opacity', {
+						min: 0,
+						max: 1,
+						step: 0.01,
+						showUnit: false,
+						showReset: true,
+						responsive: true,
+						stateful: true,
+					} ),
+				],
+				{ familyId: 'effects', groupId: 'shadow', order: 10 },
+			),
+			createControlSection(
+				'effects-filters',
+				'Filters',
+				'style',
+				[
+					createFilterField( 'filter', 'Filter', 'style.effects.filter', {
+						filters: [
+							{ id: 'blur', label: 'Blur', min: 0, max: 20, step: 0.1, unit: 'px', preview: 'blur' },
+							{ id: 'brightness', label: 'Brightness', min: 0, max: 2, step: 0.01, preview: 'solid' },
+							{ id: 'contrast', label: 'Contrast', min: 0, max: 2, step: 0.01, preview: 'contrast' },
+							{ id: 'saturate', label: 'Saturate', min: 0, max: 3, step: 0.01, preview: 'gradient' },
+							{ id: 'hue', label: 'Hue', min: 0, max: 360, step: 1, unit: 'deg', preview: 'solid' },
+						],
+						compositeMode: 'stack',
+						showPreview: true,
+						responsive: true,
+						stateful: true,
+					} ),
+					createFilterField( 'backdropFilter', 'Backdrop Filter', 'style.effects.backdropFilter', {
+						filters: [
+							{ id: 'blur', label: 'Blur', min: 0, max: 20, step: 0.1, unit: 'px', preview: 'blur' },
+							{ id: 'brightness', label: 'Brightness', min: 0, max: 2, step: 0.01, preview: 'solid' },
+							{ id: 'contrast', label: 'Contrast', min: 0, max: 2, step: 0.01, preview: 'contrast' },
+							{ id: 'saturate', label: 'Saturate', min: 0, max: 3, step: 0.01, preview: 'gradient' },
+							{ id: 'hue', label: 'Hue', min: 0, max: 360, step: 1, unit: 'deg', preview: 'solid' },
+						],
+						compositeMode: 'stack',
+						showPreview: true,
+						responsive: true,
+						stateful: true,
+					} ),
+					createSelectField( 'mixBlendMode', 'Blend Mode', 'style.effects.mixBlendMode', blendModeOptions, {
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'effects', groupId: 'filters', order: 20 },
+			),
+			createControlSection(
+				'effects-motion',
+				'Motion',
+				'style',
+				[
+					createControlField( 'transition', 'Transition', 'text', 'style.effects.transition', { responsive: true, stateful: true } ),
+					createSelectField( 'animation', 'Entrance Animation', 'style.effects.animation', animationOptions, {
+						responsive: true,
+					} ),
+					createSelectField( 'hoverAnimation', 'Hover Animation', 'style.effects.hoverAnimation', animationOptions, {
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'effects', groupId: 'motion', order: 30 },
+			),
+		],
+	),
+	createControlFamily(
+		'layout',
+		'Layout',
+		'style',
+		[
+			createControlSection(
+				'layout-sizing',
+				'Sizing',
+				'style',
+				[
+					createSelectField( 'display', 'Display', 'style.layout.display', displayOptions, { responsive: true } ),
+					createSliderField( 'width', 'Width', 'style.layout.width', {
+						min: 0,
+						max: 1600,
+						step: 1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: '%', value: '%', shortLabel: '%' },
+							{ label: 'vw', value: 'vw', shortLabel: 'vw' },
+							{ label: 'rem', value: 'rem', shortLabel: 'rem' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'maxWidth', 'Max Width', 'style.layout.maxWidth', {
+						min: 0,
+						max: 1600,
+						step: 1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: '%', value: '%', shortLabel: '%' },
+							{ label: 'vw', value: 'vw', shortLabel: 'vw' },
+							{ label: 'rem', value: 'rem', shortLabel: 'rem' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'minHeight', 'Min Height', 'style.layout.minHeight', {
+						min: 0,
+						max: 1200,
+						step: 1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: 'vh', value: 'vh', shortLabel: 'vh' },
+							{ label: 'rem', value: 'rem', shortLabel: 'rem' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'layout', groupId: 'sizing', order: 10 },
+			),
+			createControlSection(
+				'layout-spacing',
+				'Spacing',
+				'style',
+				[
+					createDimensionsField( 'padding', 'Padding', 'style.layout.padding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createDimensionsField( 'margin', 'Margin', 'style.layout.margin', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createSliderField( 'gap', 'Gap', 'style.layout.gap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'layout', groupId: 'spacing', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'media',
+		'Media',
+		'style',
+		[
+			createControlSection(
+				'media-frame',
+				'Frame',
+				'style',
+				[
+					createSliderField( 'width', 'Width', 'style.media.width', {
+						min: 0,
+						max: 1600,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'height', 'Height', 'style.media.height', {
+						min: 0,
+						max: 1200,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'vh', value: 'vh', shortLabel: 'vh' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'maxWidth', 'Max Width', 'style.media.maxWidth', {
+						min: 0,
+						max: 1600,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSelectField( 'objectFit', 'Object Fit', 'style.media.objectFit', objectFitOptions, { responsive: true } ),
+				],
+				{ familyId: 'media', groupId: 'frame', order: 10 },
+			),
+			createControlSection(
+				'media-surface',
+				'Surface',
+				'style',
+				[
+					createDimensionsField( 'borderRadius', 'Radius', 'style.media.borderRadius', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+						tokenAware: true,
+					} ),
+					createSliderField( 'opacity', 'Opacity', 'style.media.opacity', {
+						min: 0,
+						max: 1,
+						step: 0.01,
+						showUnit: false,
+						responsive: true,
+						stateful: true,
+					} ),
+					createFilterField( 'filter', 'Filter', 'style.media.filter', {
+						filters: [
+							{ id: 'blur', label: 'Blur', min: 0, max: 20, step: 0.1, unit: 'px', preview: 'blur' },
+							{ id: 'brightness', label: 'Brightness', min: 0, max: 2, step: 0.01, preview: 'solid' },
+							{ id: 'contrast', label: 'Contrast', min: 0, max: 2, step: 0.01, preview: 'contrast' },
+						],
+						compositeMode: 'stack',
+						showPreview: true,
+						responsive: true,
+						stateful: true,
+					} ),
+					createShadowField( 'boxShadow', 'Shadow', 'style.media.boxShadow', {
+						preset: 'box',
+						responsive: true,
+						stateful: true,
+						tokenAware: true,
+					} ),
+				],
+				{ familyId: 'media', groupId: 'surface', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'interactive',
+		'Interactive',
+		'style',
+		[
+			createControlSection(
+				'interactive-surface',
+				'Surface',
+				'style',
+				[
+					createDimensionsField( 'padding', 'Padding', 'style.interactive.padding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createDimensionsField( 'margin', 'Margin', 'style.interactive.margin', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createSliderField( 'gap', 'Gap', 'style.interactive.gap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createColorField( 'background', 'Background', 'style.interactive.background', { responsive: true, stateful: true, tokenAware: true } ),
+					createDimensionsField( 'borderRadius', 'Radius', 'style.interactive.borderRadius', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+						tokenAware: true,
+					} ),
+				],
+				{ familyId: 'interactive', groupId: 'surface', order: 10 },
+			),
+			createControlSection(
+				'interactive-states',
+				'States',
+				'style',
+				[
+					createShadowField( 'boxShadow', 'Shadow', 'style.interactive.boxShadow', {
+						preset: 'box',
+						responsive: true,
+						stateful: true,
+						tokenAware: true,
+					} ),
+					createSliderField( 'transition', 'Transition', 'style.interactive.transition', {
+						min: 0,
+						max: 2000,
+						step: 10,
+						units: [ { label: 'ms', value: 'ms', shortLabel: 'ms' } ],
+						defaultUnit: 'ms',
+						responsive: true,
+						stateful: true,
+					} ),
+					createColorField( 'color', 'Color', 'style.interactive.color', { responsive: true, stateful: true, tokenAware: true } ),
+					createTabsField( 'state', 'State', 'style.interactive.state', stateTabsItems, {
+						fieldType: 'select',
+						fullWidth: true,
+						responsive: true,
+						stateful: true,
+						activeTabId: 'normal',
+					} ),
+				],
+				{ familyId: 'interactive', groupId: 'states', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'form',
+		'Form',
+		'style',
+		[
+			createControlSection(
+				'form-layout',
+				'Layout',
+				'style',
+				[
+					createSliderField( 'gap', 'Gap', 'style.form.gap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'fieldGap', 'Field Gap', 'style.form.fieldGap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'labelSpacing', 'Label Spacing', 'style.form.labelSpacing', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'form', groupId: 'layout', order: 10 },
+			),
+			createControlSection(
+				'form-fields',
+				'Fields',
+				'style',
+				[
+					createDimensionsField( 'inputPadding', 'Input Padding', 'style.form.inputPadding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createColorField( 'inputBackground', 'Input Background', 'style.form.inputBackground', { responsive: true, stateful: true, tokenAware: true } ),
+					createControlField( 'inputBorder', 'Input Border', 'text', 'style.form.inputBorder', { responsive: true, stateful: true } ),
+					createDimensionsField( 'inputBorderRadius', 'Input Radius', 'style.form.inputBorderRadius', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+						tokenAware: true,
+					} ),
+				],
+				{ familyId: 'form', groupId: 'fields', order: 20 },
+			),
+			createControlSection(
+				'form-submit',
+				'Submit',
+				'style',
+				[
+					createDimensionsField( 'submitPadding', 'Submit Padding', 'style.form.submitPadding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createChooseField( 'submitAlignment', 'Alignment', 'style.form.submitAlignment', alignmentOptions, {
+						layout: 'inline',
+						iconPosition: 'top',
+						presentation: 'icon-label',
+						columns: 4,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'form', groupId: 'submit', order: 30 },
+			),
+		],
+	),
+	createControlFamily(
+		'menu',
+		'Menu',
+		'style',
+		[
+			createControlSection(
+				'menu-layout',
+				'Layout',
+				'style',
+				[
+					createSliderField( 'gap', 'Gap', 'style.menu.gap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createChooseField( 'direction', 'Direction', 'style.menu.direction', directionOptions, {
+						layout: 'inline',
+						presentation: 'icon-label',
+						iconPosition: 'top',
+						columns: 2,
+						responsive: true,
+					} ),
+					createChooseField( 'alignItems', 'Align Items', 'style.menu.alignItems', alignmentOptions, {
+						layout: 'inline',
+						presentation: 'icon-label',
+						iconPosition: 'top',
+						columns: 4,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'menu', groupId: 'layout', order: 10 },
+			),
+			createControlSection(
+				'menu-items',
+				'Items',
+				'style',
+				[
+					createDimensionsField( 'padding', 'Padding', 'style.menu.padding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createSliderField( 'itemGap', 'Item Gap', 'style.menu.itemGap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createDimensionsField( 'itemPadding', 'Item Padding', 'style.menu.itemPadding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createColorField( 'itemBackground', 'Item Background', 'style.menu.itemBackground', { responsive: true, stateful: true, tokenAware: true } ),
+					createColorField( 'itemColor', 'Item Color', 'style.menu.itemColor', { responsive: true, stateful: true, tokenAware: true } ),
+				],
+				{ familyId: 'menu', groupId: 'items', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'loop',
+		'Loop',
+		'style',
+		[
+			createControlSection(
+				'loop-layout',
+				'Layout',
+				'style',
+				[
+					createSliderField( 'gap', 'Gap', 'style.loop.gap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'columns', 'Columns', 'style.loop.columns', {
+						min: 1,
+						max: 12,
+						step: 1,
+						showUnit: false,
+						responsive: true,
+					} ),
+					createSliderField( 'rowGap', 'Row Gap', 'style.loop.rowGap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'columnGap', 'Column Gap', 'style.loop.columnGap', {
+						min: 0,
+						max: 96,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'loop', groupId: 'layout', order: 10 },
+			),
+			createControlSection(
+				'loop-templates',
+				'Templates',
+				'style',
+				[
+					createDimensionsField( 'itemPadding', 'Item Padding', 'style.loop.itemPadding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createDimensionsField( 'emptyStatePadding', 'Empty State Padding', 'style.loop.emptyStatePadding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'loop', groupId: 'templates', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'popup',
+		'Popup',
+		'style',
+		[
+			createControlSection(
+				'popup-shell',
+				'Shell',
+				'style',
+				[
+					createSliderField( 'width', 'Width', 'style.popup.width', {
+						min: 0,
+						max: 1600,
+						step: 1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: '%', value: '%', shortLabel: '%' },
+							{ label: 'vw', value: 'vw', shortLabel: 'vw' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'maxWidth', 'Max Width', 'style.popup.maxWidth', {
+						min: 0,
+						max: 1600,
+						step: 1,
+						units: [
+							{ label: 'px', value: 'px', shortLabel: 'px' },
+							{ label: '%', value: '%', shortLabel: '%' },
+							{ label: 'vw', value: 'vw', shortLabel: 'vw' },
+						],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createDimensionsField( 'padding', 'Padding', 'style.popup.padding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createColorField( 'background', 'Background', 'style.popup.background', { responsive: true, stateful: true, tokenAware: true } ),
+				],
+				{ familyId: 'popup', groupId: 'shell', order: 10 },
+			),
+			createControlSection(
+				'popup-overlay',
+				'Overlay',
+				'style',
+				[
+					createDimensionsField( 'borderRadius', 'Border Radius', 'style.popup.borderRadius', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+						tokenAware: true,
+					} ),
+					createColorField( 'overlayColor', 'Overlay Color', 'style.popup.overlayColor', { responsive: true, stateful: true, tokenAware: true } ),
+					createShadowField( 'boxShadow', 'Shadow', 'style.popup.boxShadow', {
+						preset: 'box',
+						responsive: true,
+						stateful: true,
+						tokenAware: true,
+					} ),
+				],
+				{ familyId: 'popup', groupId: 'overlay', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'compat',
+		'Compat',
+		'style',
+		[
+			createControlSection(
+				'compat-surface',
+				'Surface',
+				'style',
+				[
+					createDimensionsField( 'padding', 'Padding', 'style.compat.padding', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createDimensionsField( 'margin', 'Margin', 'style.compat.margin', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: 'rem', value: 'rem', shortLabel: 'rem' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+					} ),
+					createColorField( 'background', 'Background', 'style.compat.background', { responsive: true, tokenAware: true } ),
+					createDimensionsField( 'borderRadius', 'Border Radius', 'style.compat.borderRadius', {
+						sides: [ 'top', 'right', 'bottom', 'left' ],
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' } ],
+						defaultUnit: 'px',
+						linked: true,
+						showLinkedToggle: true,
+						responsive: true,
+						tokenAware: true,
+					} ),
+					createSliderField( 'opacity', 'Opacity', 'style.compat.opacity', {
+						min: 0,
+						max: 1,
+						step: 0.01,
+						showUnit: false,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'compat', groupId: 'surface', order: 10 },
+			),
+		],
+	),
+];
+
+export const ADVANCED_CONTROL_FAMILIES: BuilderControlFamilyDefinition[] = [
+	createControlFamily(
+		'positioning',
+		'Positioning',
+		'advanced',
+		[
+			createControlSection(
+				'positioning-layout',
+				'Positioning',
+				'advanced',
+				[
+					createSelectField( 'display', 'Display', 'advanced.positioning.display', displayOptions, { responsive: true } ),
+					createSelectField( 'position', 'Position', 'advanced.positioning.position', positionOptions, { responsive: true } ),
+					createSliderField( 'top', 'Top', 'advanced.positioning.top', {
+						min: -400,
+						max: 400,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' }, { label: 'vh', value: 'vh', shortLabel: 'vh' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'right', 'Right', 'advanced.positioning.right', {
+						min: -400,
+						max: 400,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' }, { label: 'vh', value: 'vh', shortLabel: 'vh' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'bottom', 'Bottom', 'advanced.positioning.bottom', {
+						min: -400,
+						max: 400,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' }, { label: 'vh', value: 'vh', shortLabel: 'vh' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'left', 'Left', 'advanced.positioning.left', {
+						min: -400,
+						max: 400,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' }, { label: 'vh', value: 'vh', shortLabel: 'vh' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'zIndex', 'Z Index', 'advanced.positioning.zIndex', {
+						min: 0,
+						max: 500,
+						step: 1,
+						showUnit: false,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'positioning', groupId: 'layout', order: 10 },
+			),
+			createControlSection(
+				'positioning-flex',
+				'Flex & Grid',
+				'advanced',
+				[
+					createChooseField( 'flexDirection', 'Direction', 'advanced.positioning.flexDirection', directionOptions, {
+						layout: 'inline',
+						presentation: 'icon-label',
+						iconPosition: 'top',
+						columns: 2,
+						responsive: true,
+					} ),
+					createChooseField( 'justifyContent', 'Justify Content', 'advanced.positioning.justifyContent', alignmentOptions, {
+						layout: 'inline',
+						presentation: 'icon-label',
+						iconPosition: 'top',
+						columns: 4,
+						responsive: true,
+					} ),
+					createChooseField( 'alignItems', 'Align Items', 'advanced.positioning.alignItems', alignmentOptions, {
+						layout: 'inline',
+						presentation: 'icon-label',
+						iconPosition: 'top',
+						columns: 4,
+						responsive: true,
+					} ),
+					createChooseField( 'alignSelf', 'Align Self', 'advanced.positioning.alignSelf', alignmentOptions, {
+						layout: 'inline',
+						presentation: 'icon-label',
+						iconPosition: 'top',
+						columns: 4,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'positioning', groupId: 'flex', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'responsive',
+		'Responsive Visibility',
+		'advanced',
+		[
+			createControlSection(
+				'responsive-visibility',
+				'Visibility',
+				'advanced',
+				[
+					createSwitcherField( 'hideOnDesktop', 'Hide on Desktop', 'advanced.responsive.hideOnDesktop', { responsive: true } ),
+					createSwitcherField( 'hideOnTablet', 'Hide on Tablet', 'advanced.responsive.hideOnTablet', { responsive: true } ),
+					createSwitcherField( 'hideOnMobile', 'Hide on Mobile', 'advanced.responsive.hideOnMobile', { responsive: true } ),
+					createSelectField( 'visibility', 'State', 'advanced.responsive.visibility', visibilityOptions, {
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'responsive', groupId: 'visibility', order: 10 },
+			),
+		],
+	),
+	createControlFamily(
+		'motion',
+		'Motion & Effects',
+		'advanced',
+		[
+			createControlSection(
+				'motion-effects',
+				'Effects',
+				'advanced',
+				[
+					createSelectField( 'animation', 'Entrance Animation', 'advanced.motion.animation', animationOptions, { responsive: true } ),
+					createSelectField( 'hoverAnimation', 'Hover Animation', 'advanced.motion.hoverAnimation', animationOptions, { responsive: true } ),
+					createSliderField( 'transitionDuration', 'Transition Duration', 'advanced.motion.transitionDuration', {
+						min: 0,
+						max: 5000,
+						step: 10,
+						units: [ { label: 'ms', value: 'ms', shortLabel: 'ms' } ],
+						defaultUnit: 'ms',
+						responsive: true,
+					} ),
+					createSliderField( 'transitionDelay', 'Transition Delay', 'advanced.motion.transitionDelay', {
+						min: 0,
+						max: 5000,
+						step: 10,
+						units: [ { label: 'ms', value: 'ms', shortLabel: 'ms' } ],
+						defaultUnit: 'ms',
+						responsive: true,
+					} ),
+					createSwitcherField( 'motionReduce', 'Reduced Motion', 'advanced.motion.motionReduce', { responsive: true } ),
+				],
+				{ familyId: 'motion', groupId: 'effects', order: 10 },
+			),
+		],
+	),
+	createControlFamily(
+		'transform',
+		'Transform',
+		'advanced',
+		[
+			createControlSection(
+				'transform-basis',
+				'Transform',
+				'advanced',
+				[
+					createSliderField( 'translateX', 'Translate X', 'advanced.transform.translateX', {
+						min: -400,
+						max: 400,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' }, { label: 'vw', value: 'vw', shortLabel: 'vw' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'translateY', 'Translate Y', 'advanced.transform.translateY', {
+						min: -400,
+						max: 400,
+						step: 1,
+						units: [ { label: 'px', value: 'px', shortLabel: 'px' }, { label: '%', value: '%', shortLabel: '%' }, { label: 'vh', value: 'vh', shortLabel: 'vh' } ],
+						defaultUnit: 'px',
+						responsive: true,
+					} ),
+					createSliderField( 'scaleX', 'Scale X', 'advanced.transform.scaleX', {
+						min: 0,
+						max: 3,
+						step: 0.01,
+						showUnit: false,
+						responsive: true,
+					} ),
+					createSliderField( 'scaleY', 'Scale Y', 'advanced.transform.scaleY', {
+						min: 0,
+						max: 3,
+						step: 0.01,
+						showUnit: false,
+						responsive: true,
+					} ),
+					createSliderField( 'rotate', 'Rotate', 'advanced.transform.rotate', {
+						min: -360,
+						max: 360,
+						step: 1,
+						units: [ { label: 'deg', value: 'deg', shortLabel: 'deg' } ],
+						defaultUnit: 'deg',
+						responsive: true,
+					} ),
+					createSliderField( 'skewX', 'Skew X', 'advanced.transform.skewX', {
+						min: -45,
+						max: 45,
+						step: 0.1,
+						units: [ { label: 'deg', value: 'deg', shortLabel: 'deg' } ],
+						defaultUnit: 'deg',
+						responsive: true,
+					} ),
+					createSliderField( 'skewY', 'Skew Y', 'advanced.transform.skewY', {
+						min: -45,
+						max: 45,
+						step: 0.1,
+						units: [ { label: 'deg', value: 'deg', shortLabel: 'deg' } ],
+						defaultUnit: 'deg',
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'transform', groupId: 'basis', order: 10 },
+			),
+		],
+	),
+	createControlFamily(
+		'attributes',
+		'Custom Attributes',
+		'advanced',
+		[
+			createControlSection(
+				'attributes-identifiers',
+				'Identifiers',
+				'advanced',
+				[
+					createControlField( 'elementId', 'Element ID', 'text', 'advanced.attributes.elementId', { responsive: true } ),
+					createControlField( 'customClasses', 'Custom Classes', 'textarea', 'advanced.attributes.customClasses', { responsive: true } ),
+					createControlField( 'customAttributes', 'Custom Attributes', 'json', 'advanced.attributes.customAttributes', { responsive: true } ),
+				],
+				{ familyId: 'attributes', groupId: 'identifiers', order: 10 },
+			),
+			createControlSection(
+				'attributes-accessibility',
+				'Accessibility',
+				'advanced',
+				[
+					createControlField( 'ariaLabel', 'ARIA Label', 'text', 'advanced.attributes.ariaLabel', { responsive: true } ),
+					createSelectField( 'role', 'Role', 'advanced.attributes.role', [
+						{ label: 'None', value: '' },
+						{ label: 'Button', value: 'button' },
+						{ label: 'Navigation', value: 'navigation' },
+						{ label: 'Main', value: 'main' },
+						{ label: 'Presentation', value: 'presentation' },
+					], { responsive: true } ),
+					createSliderField( 'tabIndex', 'Tab Index', 'advanced.attributes.tabIndex', {
+						min: -1,
+						max: 10,
+						step: 1,
+						showUnit: false,
+						responsive: true,
+					} ),
+				],
+				{ familyId: 'attributes', groupId: 'accessibility', order: 20 },
+			),
+		],
+	),
+	createControlFamily(
+		'custom-css',
+		'Custom CSS',
+		'advanced',
+		[
+			createControlSection(
+				'custom-css-scope',
+				'Custom CSS',
+				'advanced',
+				[
+					createSelectField( 'cssScope', 'Scope', 'advanced.customCss.scope', [
+						{ label: 'Widget', value: 'widget' },
+						{ label: 'Wrapper', value: 'wrapper' },
+						{ label: 'Global', value: 'global' },
+					], { responsive: true } ),
+					createControlField( 'customCSS', 'CSS', 'textarea', 'advanced.customCss.code', { responsive: true } ),
+				],
+				{ familyId: 'custom-css', groupId: 'css', order: 10 },
+			),
+		],
+	),
+];
+
+export const CONTROL_FAMILIES = [ ...STYLE_CONTROL_FAMILIES, ...ADVANCED_CONTROL_FAMILIES ] as const;
+
+export function getControlFamilyById( familyId: string ): BuilderControlFamilyDefinition | undefined {
+	return CONTROL_FAMILIES.find( ( family ) => family.id === familyId );
+}
+
+export function getControlFamiliesForTab( tab: 'style' | 'advanced' ): BuilderControlFamilyDefinition[] {
+	return CONTROL_FAMILIES.filter( ( family ) => family.tab === tab );
+}
+
+export function getControlPanelSectionsForTab( tab: 'style' | 'advanced' ): BuilderControlSectionDefinition[] {
+	return getControlFamiliesForTab( tab ).flatMap( ( family ) => family.sections );
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@builder/editor-svelte",
+  "version": "0.1.0",
+  "type": "module",
+  "svelte": "./src/index.ts",
+  "exports": {
+    ".": {
+      "svelte": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@builder/core": "workspace:*",
+    "@builder/elementor-import": "workspace:*",
+    "@builder/plugin-api": "workspace:*",
+    "@builder/runtime-svelte": "workspace:*",
+    "@builder/schema": "workspace:*",
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/modifiers": "9.0.0",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/svelte": "^0.4.0",
+    "@floating-ui/dom": "1.7.6",
+    "@tanstack/svelte-virtual": "3.13.24",
+    "@tiptap/core": "^3.22.4",
+    "@tiptap/extension-bubble-menu": "^3.22.4",
+    "@tiptap/pm": "^3.22.4",
+    "@tiptap/starter-kit": "^3.22.4",
+    "bits-ui": "2.18.0",
+    "paneforge": "^1.0.2",
+    "svelte": "^5.38.7"
+  }
+}

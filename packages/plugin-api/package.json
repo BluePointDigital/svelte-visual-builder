@@ -1,0 +1,13 @@
+{
+  "name": "@builder/plugin-api",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@builder/core": "workspace:*",
+    "@builder/schema": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+

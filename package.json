@@ -1,0 +1,39 @@
+{
+  "name": "svelte-builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm --filter @builder/reference-studio dev",
+    "check": "tsc --noEmit -p tsconfig.packages.json && pnpm --filter @builder/reference-studio check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "embed:validate": "pnpm check && pnpm test && pnpm test:e2e && pnpm --filter @builder/embed-smoke-host check && pnpm --filter @builder/embed-smoke-host build && playwright test -c playwright.embed.config.ts",
+    "release:validate": "tsx scripts/run-release-validation.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@sveltejs/adapter-auto": "^4.0.0",
+    "@sveltejs/kit": "^2.20.7",
+    "@sveltejs/package": "^2.3.10",
+    "@sveltejs/vite-plugin-svelte": "^5.1.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/svelte": "^5.2.8",
+    "@types/node": "^24.6.0",
+    "csstype": "^3.2.3",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.5.3",
+    "prettier-plugin-svelte": "^3.4.0",
+    "prisma": "^6.6.0",
+    "svelte": "^5.38.7",
+    "svelte-check": "^4.1.7",
+    "tslib": "^2.8.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5",
+    "vitest": "^2.1.8",
+    "zod": "^3.24.2"
+  }
+}

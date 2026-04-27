@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  projectJson Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  documents   Document[]
+  mediaAssets MediaAsset[]
+}
+
+model Document {
+  id          String   @id
+  projectId   String
+  kind        String
+  title       String
+  slug        String
+  status      String
+  documentJson Json
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId, kind])
+  @@index([projectId, slug])
+}
+
+model MediaAsset {
+  id         String   @id
+  projectId  String
+  kind       String
+  storageKey String
+  publicUrl  String
+  metadata   Json
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([projectId])
+}
+

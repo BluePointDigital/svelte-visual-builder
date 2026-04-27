@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "packages/**/*.ts",
+    "packages/**/*.svelte",
+    "apps/**/*.ts",
+    "apps/**/*.js",
+    "apps/**/*.d.ts",
+    "apps/**/*.svelte",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
+}
+

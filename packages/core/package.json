@@ -1,0 +1,12 @@
+{
+  "name": "@builder/core",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@builder/schema": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
+

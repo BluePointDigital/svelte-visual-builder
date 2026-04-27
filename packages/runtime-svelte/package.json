@@ -1,0 +1,18 @@
+{
+  "name": "@builder/runtime-svelte",
+  "version": "0.1.0",
+  "type": "module",
+  "svelte": "./src/index.ts",
+  "exports": {
+    ".": {
+      "svelte": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@builder/core": "workspace:*",
+    "@builder/plugin-api": "workspace:*",
+    "@builder/schema": "workspace:*",
+    "svelte": "^5.38.7"
+  }
+}

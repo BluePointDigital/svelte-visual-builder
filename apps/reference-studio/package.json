@@ -1,0 +1,23 @@
+{
+  "name": "@builder/reference-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@builder/adapter-sveltekit": "workspace:*",
+    "@builder/core": "workspace:*",
+    "@builder/editor-svelte": "workspace:*",
+    "@builder/elementor-import": "workspace:*",
+    "@builder/plugin-api": "workspace:*",
+    "@builder/runtime-svelte": "workspace:*",
+    "@builder/schema": "workspace:*",
+    "@prisma/client": "^6.6.0",
+    "svelte": "^5.38.7"
+  }
+}
