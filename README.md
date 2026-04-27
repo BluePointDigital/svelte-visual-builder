@@ -23,7 +23,7 @@ The reference studio includes the full editing shell: canvas preview, left inspe
 
 ![Main Svelte Visual Builder interface](screenshots/main-builder.png)
 
-<video src="screenshots/simple-editing.mp4" controls muted playsinline></video>
+[Watch the simple editing workflow demo](https://youtu.be/ins4jXH2U3U)
 
 ### Container Controls
 
@@ -43,7 +43,7 @@ While AI is generating, the full dialog collapses to a compact progress window a
 
 ![Generating with AI compact progress state](screenshots/generating-with-ai.png)
 
-<video src="screenshots/create-with-ai-realtime.mp4" controls muted playsinline></video>
+[Watch the Create with AI realtime preview demo](https://youtu.be/6cGpdJaJ2xw)
 
 ## Workspace
 
