@@ -136,7 +136,7 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 				level: tag,
 			},
 			attributes: extractAttributes( element ),
-			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+			styles: createImportedElementStyleSet( element, stylesheet ),
 			meta: createHtmlNodeMeta( tag ),
 		} );
 	}
@@ -149,7 +149,7 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 				text: element.innerHTML.trim() || element.textContent?.trim() || '',
 			},
 			attributes: extractAttributes( element ),
-			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+			styles: createImportedElementStyleSet( element, stylesheet ),
 			meta: createHtmlNodeMeta( tag ),
 		} );
 	}
@@ -163,7 +163,7 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 				alt: element.getAttribute( 'alt' ) ?? '',
 			},
 			attributes: extractAttributes( element, [ 'src', 'alt' ] ),
-			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+			styles: createImportedElementStyleSet( element, stylesheet ),
 			meta: createHtmlNodeMeta( tag ),
 		} );
 	}
@@ -177,7 +177,7 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 				href: element.getAttribute( 'href' ) ?? '#',
 			},
 			attributes: extractAttributes( element, [ 'href' ] ),
-			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+			styles: createImportedElementStyleSet( element, stylesheet ),
 			meta: createHtmlNodeMeta( tag ),
 		} );
 	}
@@ -190,7 +190,7 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 			type: 'container',
 			layout,
 			attributes: extractAttributes( element ),
-			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+			styles: createImportedElementStyleSet( element, stylesheet ),
 			children,
 			meta: createHtmlNodeMeta( tag ),
 		} );
@@ -198,7 +198,7 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 
 	if ( RICH_HTML_TAGS.has( tag ) || FALLBACK_HTML_TAGS.has( tag ) || tag.includes( '-' ) ) {
 		addDiagnostic( warnings, parityGaps, 'html-fallback-node', `HTML <${ tag }> was imported as an editable HTML node.`, 'unsupported', tag );
-		return createHtmlFallbackNode( element, tag );
+		return createHtmlFallbackNode( element, tag, stylesheet );
 	}
 
 	if ( hasOnlyInlineContent( element ) ) {
@@ -209,23 +209,23 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 				text: element.innerHTML.trim() || element.textContent?.trim() || '',
 			},
 			attributes: extractAttributes( element ),
-			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+			styles: createImportedElementStyleSet( element, stylesheet ),
 			meta: createHtmlNodeMeta( tag ),
 		} );
 	}
 
 	addDiagnostic( warnings, parityGaps, 'html-fallback-node', `HTML <${ tag }> was imported as an editable HTML node.`, 'unsupported', tag );
-	return createHtmlFallbackNode( element, tag );
+	return createHtmlFallbackNode( element, tag, stylesheet );
 }
 
-function createHtmlFallbackNode( element: Element, tag: string ): BuilderNode {
+function createHtmlFallbackNode( element: Element, tag: string, stylesheet: string ): BuilderNode {
 	return createNode( {
 		id: crypto.randomUUID(),
 		type: 'html',
 		props: {
 			markup: element.outerHTML,
 		},
-		styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
+		styles: createImportedElementStyleSet( element, stylesheet ),
 		attributes: extractAttributes( element ),
 		meta: createHtmlNodeMeta( tag, true ),
 	} );
@@ -320,6 +320,21 @@ function parseInlineStyle( value: string | null ): Record<string, JsonValue> {
 	return styles;
 }
 
+function createImportedElementStyleSet( element: Element, stylesheet: string ): StyleSet {
+	return createStyleSet( resolveElementStyleSetInput( element, stylesheet ) );
+}
+
+function resolveElementStyleSetInput( element: Element, stylesheet: string ): Partial<StyleSet> {
+	const stylesheetStyles = resolveStylesheetStylesForElement( element, stylesheet );
+	return {
+		base: compactJsonObject( {
+			...stylesheetStyles.base,
+			...parseInlineStyle( element.getAttribute( 'style' ) ),
+		} ),
+		states: stylesheetStyles.states,
+	};
+}
+
 function resolveImportedHtmlContainerLayout( element: Element, tag: string, stylesheet: string ): Record<string, JsonValue> {
 	const inlineStyles = parseInlineStyle( element.getAttribute( 'style' ) );
 	const inlineDisplay = stringStyleValue( inlineStyles.display );
@@ -352,11 +367,9 @@ function resolveStylesheetFlexHint( element: Element, tag: string, stylesheet: s
 		return {};
 	}
 	let hint: { display?: string; direction?: string } = {};
-	const rulePattern = /([^{}@]+)\{([^{}]*)\}/g;
-	for ( const match of stylesheet.matchAll( rulePattern ) ) {
-		const selectorText = match[ 1 ] ?? '';
-		const declarations = match[ 2 ] ?? '';
-		if ( !selectorText.split( ',' ).some( ( selector ) => matchesImportedElementSelector( element, selector ) ) ) {
+	for ( const { selectorText, declarations } of iterateTopLevelCssRules( stylesheet ) ) {
+		void tag;
+		if ( !selectorText.split( ',' ).some( ( selector ) => isBaseStyleSelector( selector ) && matchesImportedElementSelector( element, selector ) ) ) {
 			continue;
 		}
 		const declarationMap = parseInlineStyle( declarations );
@@ -368,6 +381,75 @@ function resolveStylesheetFlexHint( element: Element, tag: string, stylesheet: s
 		};
 	}
 	return hint;
+}
+
+function resolveStylesheetStylesForElement( element: Element, stylesheet: string ): Pick<StyleSet, 'base' | 'states'> {
+	if ( !stylesheet.trim() ) {
+		return { base: {}, states: {} };
+	}
+	let base: Record<string, JsonValue> = {};
+	const states: Record<string, Record<string, JsonValue>> = {};
+	for ( const { selectorText, declarations } of iterateTopLevelCssRules( stylesheet ) ) {
+		const declarationMap = parseInlineStyle( declarations );
+		for ( const selector of selectorText.split( ',' ) ) {
+			const state = getSelectorState( selector );
+			if ( state ) {
+				if ( matchesImportedElementSelector( element, selector ) ) {
+					states[ state ] = {
+						...( states[ state ] ?? {} ),
+						...declarationMap,
+					};
+				}
+				continue;
+			}
+			if ( isBaseStyleSelector( selector ) && matchesImportedElementSelector( element, selector ) ) {
+				base = {
+					...base,
+					...declarationMap,
+				};
+			}
+		}
+	}
+	return { base, states };
+}
+
+function iterateTopLevelCssRules( css: string ): Array<{ selectorText: string; declarations: string }> {
+	const output: Array<{ selectorText: string; declarations: string }> = [];
+	const cleaned = stripCssComments( css );
+	let index = 0;
+	while ( index < cleaned.length ) {
+		const open = cleaned.indexOf( '{', index );
+		if ( open === -1 ) {
+			break;
+		}
+		const selectorText = cleaned.slice( index, open ).trim();
+		const close = findMatchingBrace( cleaned, open );
+		if ( close === -1 ) {
+			break;
+		}
+		if ( selectorText && !selectorText.startsWith( '@' ) ) {
+			output.push( {
+				selectorText,
+				declarations: cleaned.slice( open + 1, close ).trim(),
+			} );
+		}
+		index = close + 1;
+	}
+	return output;
+}
+
+function stripCssComments( css: string ): string {
+	return css.replaceAll( /\/\*[\s\S]*?\*\//g, '' );
+}
+
+function isBaseStyleSelector( selector: string ): boolean {
+	const normalized = selector.trim();
+	return Boolean( normalized ) && !getSelectorState( normalized ) && !/::[a-z-]+/i.test( normalized );
+}
+
+function getSelectorState( selector: string ): string | undefined {
+	const match = selector.match( /:(hover|active|focus-visible|focus|visited|disabled|checked)\b/i );
+	return match?.[ 1 ]?.toLowerCase();
 }
 
 function matchesImportedElementSelector( element: Element, selector: string ): boolean {
@@ -414,17 +496,18 @@ function scopeImportedCss( css: string, warnings: TemplateImportDiagnostic[], pa
 function scopeCssBlock( css: string, warnings: TemplateImportDiagnostic[], parityGaps: TemplateImportDiagnostic[] ): string {
 	let output = '';
 	let index = 0;
-	while ( index < css.length ) {
-		const open = css.indexOf( '{', index );
+	const cleaned = stripCssComments( css );
+	while ( index < cleaned.length ) {
+		const open = cleaned.indexOf( '{', index );
 		if ( open === -1 ) {
 			break;
 		}
-		const selector = css.slice( index, open ).trim();
-		const close = findMatchingBrace( css, open );
+		const selector = cleaned.slice( index, open ).trim();
+		const close = findMatchingBrace( cleaned, open );
 		if ( close === -1 ) {
 			break;
 		}
-		const body = css.slice( open + 1, close ).trim();
+		const body = cleaned.slice( open + 1, close ).trim();
 		if ( selector.startsWith( '@media' ) || selector.startsWith( '@supports' ) ) {
 			const scopedBody = scopeCssBlock( body, warnings, parityGaps );
 			if ( scopedBody ) {

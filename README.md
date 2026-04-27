@@ -23,6 +23,8 @@ The reference studio includes the full editing shell: canvas preview, left inspe
 
 ![Main Svelte Visual Builder interface](screenshots/main-builder.png)
 
+<video src="screenshots/simple-editing.mp4" controls muted playsinline></video>
+
 ### Container Controls
 
 Selected containers expose compact canvas controls, layout context, action rails, and resize/layout affordances without requiring the user to leave the visual surface.
@@ -40,6 +42,8 @@ The AI create dialog accepts a prompt, target location, style preference, theme 
 While AI is generating, the full dialog collapses to a compact progress window and the canvas shows an HTML preview placeholder/stand-in for streamed output before it is parsed into editable Builder nodes.
 
 ![Generating with AI compact progress state](screenshots/generating-with-ai.png)
+
+<video src="screenshots/create-with-ai-realtime.mp4" controls muted playsinline></video>
 
 ## Workspace
 

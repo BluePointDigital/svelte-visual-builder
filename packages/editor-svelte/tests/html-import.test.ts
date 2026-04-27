@@ -15,6 +15,10 @@ describe( 'HTML importer', () => {
 						<style>
 							body { margin: 0; }
 							.hero { background: #101827; display: flex; }
+							.hero p { color: #475569; }
+							.button.primary { border-radius: 8px; }
+							.button.primary:hover { background-color: #1d4ed8; transform: translateY(-2px); }
+							.button.primary::before { content: ""; background: #ef4444; }
 							@media (max-width: 640px) { .hero h1 { color: #0c9488; } }
 							@import url("https://example.com/site.css");
 						</style>
@@ -58,6 +62,8 @@ describe( 'HTML importer', () => {
 			expect.objectContaining( { name: 'class', value: 'hero' } ),
 		] ) );
 		expect( hero.styles.base ).toMatchObject( {
+			background: '#101827',
+			display: 'flex',
 			padding: '32px',
 			gap: '18px',
 		} );
@@ -76,6 +82,11 @@ describe( 'HTML importer', () => {
 			props: {
 				text: 'Rich <strong>copy</strong>',
 			},
+			styles: {
+				base: {
+					color: '#475569',
+				},
+			},
 		} );
 		expect( image ).toMatchObject( {
 			type: 'image',
@@ -93,10 +104,19 @@ describe( 'HTML importer', () => {
 			styles: {
 				base: {
 					backgroundColor: '#2563eb',
+					borderRadius: '8px',
 					color: '#fff',
+				},
+				states: {
+					hover: {
+						backgroundColor: '#1d4ed8',
+						transform: 'translateY(-2px)',
+					},
 				},
 			},
 		} );
+		expect( button.styles.base.transform ).toBeUndefined();
+		expect( button.styles.base.content ).toBeUndefined();
 		expect( custom.type ).toBe( 'html' );
 		expect( result.warnings ).toEqual( expect.arrayContaining( [
 			expect.objectContaining( { code: 'unsupported-css-import' } ),
