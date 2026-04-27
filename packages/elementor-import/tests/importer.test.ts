@@ -32,7 +32,7 @@ describe( 'Elementor importer', () => {
 		expect( result.project.documents[ 0 ].root[ 0 ].type ).toBe( 'container' );
 		expect( result.project.documents[ 0 ].root[ 0 ].layout ).toMatchObject( {
 			display: 'flex',
-			direction: 'column',
+			direction: 'row',
 		} );
 		expect( result.project.documents[ 0 ].root[ 0 ].children[ 0 ].type ).toBe( 'container' );
 		expect( result.project.documents[ 0 ].root[ 0 ].children[ 0 ].layout ).toMatchObject( {
@@ -185,7 +185,7 @@ describe( 'Elementor importer', () => {
 		const section = result.project.documents[ 0 ].root[ 0 ];
 		expect( section.layout ).toMatchObject( {
 			display: 'flex',
-			direction: 'column',
+			direction: 'row',
 		} );
 		expect( section.attributes ).toEqual( expect.arrayContaining( [
 			expect.objectContaining( { name: 'id', value: 'hero' } ),

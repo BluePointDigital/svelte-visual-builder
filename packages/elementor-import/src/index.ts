@@ -434,7 +434,14 @@ function importNode(
 				...( node.settings ?? {} ),
 				legacyType: node.elType,
 				display: 'flex',
-				direction: 'column',
+				direction: firstDefined(
+					node.settings?.direction,
+					node.settings?.flexDirection,
+					node.settings?.flex_direction,
+					node.settings?.container_direction,
+					node.settings?.content_direction,
+					node.elType === 'section' ? 'row' : 'column',
+				),
 			}, children );
 		case 'widget':
 			return importWidgetNode( id, node.widgetType ?? 'unknown', node.settings ?? {}, children, warnings, document, parityGaps );

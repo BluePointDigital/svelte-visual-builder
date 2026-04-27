@@ -50,6 +50,11 @@ export interface BuilderAiSessionState {
 	error?: string;
 	activeRunId?: string;
 	lastToolSummary?: string;
+	createPreview?: {
+		html: string;
+		css?: string;
+		title?: string;
+	};
 }
 
 export type BuilderAiApiMessage =
@@ -87,6 +92,8 @@ export interface BuilderAiRunOptions {
 	tools: BuilderAiToolDefinition[];
 	executeTool: ( call: BuilderAiToolCall ) => Promise<BuilderAiToolExecutionResult>;
 	onAssistantMessage?: ( content: string ) => void;
+	onAssistantDelta?: ( content: string ) => void;
+	onToolCallDelta?: ( call: BuilderAiToolCall ) => void;
 	onToolResult?: ( call: BuilderAiToolCall, result: BuilderAiToolExecutionResult ) => void;
 	onDebugMessage?: ( label: string, payload: JsonValue ) => void;
 	signal?: AbortSignal;
@@ -310,8 +317,12 @@ export async function runBuilderAiAgent( options: BuilderAiRunOptions ): Promise
 			const content = typeof delta?.content === 'string' ? delta.content : typeof message?.content === 'string' ? message.content : '';
 			if ( content ) {
 				assistantContent.push( content );
+				options.onAssistantDelta?.( assistantContent.join( '' ) );
 			}
 			mergeToolCalls( toolCalls, delta?.tool_calls ?? message?.tool_calls );
+			for ( const call of toolCalls.values() ) {
+				options.onToolCallDelta?.( call );
+			}
 		}
 
 		const orderedToolCalls = [ ...toolCalls.entries() ]

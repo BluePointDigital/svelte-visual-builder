@@ -126,12 +126,15 @@
 	let aiCreateTarget = 'auto';
 	let aiCreateDesignStyle = 'auto';
 	let aiCreateOverwriteTheme = false;
+	let aiCreateMinimized = false;
 	let aiChatDraft = '';
 	$: canEditProject = editor.can( 'editProject' );
 	$: canPublish = editor.can( 'publish' );
 	$: canUseAi = editor.can( 'useAi' );
 	$: publishPermissionReason = editor.getPermission( 'publish' ).reason ?? 'Publishing is disabled by this host.';
 	$: aiPermissionReason = editor.getPermission( 'useAi' ).reason ?? 'AI is disabled by this host.';
+	$: aiCreateRunning = aiSession.mode === 'create' && ( aiSession.status === 'streaming' || aiSession.status === 'applying' );
+	$: aiCreatePreviewSrcdoc = buildAiCreatePreviewSrcdoc( aiSession.createPreview );
 
 	const shellPages: Array<{ id: BuilderShellPage; label: string }> = [
 		{ id: 'elements', label: 'Elements' },
@@ -1312,12 +1315,14 @@
 
 	function closeAiCreateDialog() {
 		if ( aiSession.status === 'streaming' || aiSession.status === 'applying' ) return;
+		aiCreateMinimized = false;
 		aiCreateOpen = false;
 	}
 
 	async function runAiCreate() {
 		const prompt = aiCreatePrompt.trim();
 		if ( !prompt ) return;
+		aiCreateMinimized = true;
 		await editor.startAiCreate( {
 			prompt,
 			targetParentId: aiCreateTarget === 'selected' ? selectedNode?.id : undefined,
@@ -1328,8 +1333,62 @@
 		const hasDebugTrace = nextAiSession.messages.some( ( message ) => message.toolName === 'debug' );
 		if ( nextAiSession.status !== 'error' && !hasDebugTrace ) {
 			aiCreateOpen = false;
+			aiCreateMinimized = false;
 			aiCreatePrompt = '';
+		} else {
+			aiCreateMinimized = false;
 		}
+	}
+
+	function buildAiCreatePreviewSrcdoc( preview: BuilderAiSessionState['createPreview'] ): string {
+		if ( !preview?.html.trim() ) {
+			return '';
+		}
+		const sanitized = sanitizeAiCreatePreviewHtml( preview.html );
+		const css = [
+			sanitized.css,
+			preview.css?.trim() ?? '',
+		].filter( Boolean ).join( '\n\n' );
+		return [
+			'<!doctype html>',
+			'<html>',
+			'<head>',
+			'<meta charset="utf-8" />',
+			'<meta name="viewport" content="width=device-width, initial-scale=1" />',
+			'<style>html,body{margin:0;min-height:100%;font-family:Inter,system-ui,sans-serif;background:white;color:#111827;}body{padding:24px;}*{box-sizing:border-box;max-width:100%;}</style>',
+			css ? `<style>${ css.replaceAll( /<\/style/gi, '<\\/style' ) }</style>` : '',
+			'</head>',
+			`<body>${ sanitized.html }</body>`,
+			'</html>',
+		].join( '' );
+	}
+
+	function sanitizeAiCreatePreviewHtml( html: string ): { html: string; css: string } {
+		if ( typeof DOMParser === 'undefined' ) {
+			return {
+				html: html
+					.replaceAll( /<script[\s\S]*?<\/script>/gi, '' )
+					.replaceAll( /\son[a-z]+\s*=\s*(['"]).*?\1/gi, '' )
+					.replaceAll( /\s(href|src)\s*=\s*(['"])\s*javascript:[\s\S]*?\2/gi, '' ),
+				css: '',
+			};
+		}
+		const parsed = new DOMParser().parseFromString( html, 'text/html' );
+		const styles = [ ...parsed.querySelectorAll( 'style' ) ].map( ( style ) => style.textContent ?? '' );
+		[ ...parsed.querySelectorAll( 'script, noscript, template, link' ) ].forEach( ( element ) => element.remove() );
+		[ ...parsed.querySelectorAll( '*' ) ].forEach( ( element ) => {
+			[ ...element.attributes ].forEach( ( attribute ) => {
+				const name = attribute.name.toLowerCase();
+				const value = attribute.value.trim().toLowerCase();
+				if ( name.startsWith( 'on' ) || ( [ 'href', 'src' ].includes( name ) && value.startsWith( 'javascript:' ) ) ) {
+					element.removeAttribute( attribute.name );
+				}
+			} );
+		} );
+		return {
+			html: parsed.body.innerHTML,
+			css: styles.join( '\n\n' ),
+		};
 	}
 
 	function startAiEditMode() {
@@ -1671,7 +1730,18 @@
 			</div>
 		{/if}
 
-		{#if aiCreateOpen}
+		{#if aiCreateOpen && aiCreateRunning && aiCreateMinimized}
+			<aside class="builder-shell__ai-create-mini" role="status" aria-live="polite">
+				<div>
+					<p class="builder-shell__menu-label">Create with AI</p>
+					<strong>{aiSession.status === 'applying' ? 'Parsing generated HTML' : 'Generating HTML'}</strong>
+					<span>{aiSession.lastToolSummary ?? 'Streaming a live preview on the canvas.'}</span>
+				</div>
+				<button type="button" class="builder-shell-button builder-shell-button--dark" onclick={() => editor.cancelAiRun()}>
+					Cancel
+				</button>
+			</aside>
+		{:else if aiCreateOpen}
 			<div class="builder-shell__modal-backdrop" role="presentation">
 				<div class="builder-shell__html-import-dialog builder-shell__ai-create-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-create-title">
 					<header class="builder-shell__html-import-header">
@@ -2051,7 +2121,14 @@
 					class:builder-shell__stage-body--navigator-floating={shellLayout.navigator.floatingVisible}
 					class="builder-shell__stage-body"
 				>
-				<BuilderPreview {editor} registerSurface={registerPreviewSurface} />
+				<BuilderPreview
+					{editor}
+					registerSurface={registerPreviewSurface}
+					liveAiPreviewActive={aiCreateRunning}
+					liveAiPreviewSrcdoc={aiCreateRunning ? aiCreatePreviewSrcdoc : ''}
+					liveAiPreviewTitle={aiSession.createPreview?.title ?? 'Not inserted yet'}
+					liveAiPreviewStatus={aiSession.status === 'applying' ? 'Parsing into builder nodes' : aiSession.createPreview?.html ? 'Streaming generated HTML' : 'Waiting for generated HTML'}
+				/>
 				{#if shellLayout.navigator.floatingVisible}
 					<div class="builder-shell__navigator-floating"><BuilderNavigator {editor} /></div>
 				{/if}
@@ -2468,6 +2545,44 @@
 
 	.builder-shell__ai-create-dialog {
 		width: min( 680px, calc( 100vw - 48px ) );
+	}
+
+	.builder-shell__ai-create-mini {
+		position: fixed;
+		right: 18px;
+		bottom: 18px;
+		z-index: 110;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		width: min( 360px, calc( 100vw - 36px ) );
+		padding: 12px;
+		border: 1px solid rgba( 148, 163, 184, 0.28 );
+		border-radius: 12px;
+		background: rgba( 15, 23, 42, 0.96 );
+		box-shadow: 0 18px 40px rgba( 0, 0, 0, 0.32 );
+		color: #f8fafc;
+	}
+
+	.builder-shell__ai-create-mini > div {
+		display: grid;
+		gap: 3px;
+		min-width: 0;
+		flex: 1;
+	}
+
+	.builder-shell__ai-create-mini strong {
+		font-size: 13px;
+		line-height: 1.2;
+	}
+
+	.builder-shell__ai-create-mini span {
+		overflow: hidden;
+		color: #94a3b8;
+		font-size: 11px;
+		line-height: 1.35;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.builder-shell__ai-settings-dialog,

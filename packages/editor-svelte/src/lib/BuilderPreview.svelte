@@ -96,6 +96,10 @@
 
 	export let editor: BuilderEditorController;
 	export let registerSurface: ( element?: HTMLElement ) => void = () => {};
+	export let liveAiPreviewActive = false;
+	export let liveAiPreviewSrcdoc = '';
+	export let liveAiPreviewTitle = '';
+	export let liveAiPreviewStatus = '';
 
 	interface PendingInlineUpdate {
 		documentId: string;
@@ -120,6 +124,8 @@
 	let mountedRuntime: ReturnType<typeof mount> | undefined;
 	let unsubscribe = () => {};
 	let previewBridgeCleanup = () => {};
+	let aiStandinElement: HTMLDivElement | undefined;
+	let aiStandinIframe: HTMLIFrameElement | undefined;
 	let previewSyncFrame = 0;
 	let renderVersion = 0;
 	let runtimeMeasurementVersion = 0;
@@ -142,6 +148,7 @@
 	let previewViewportHeight = 0;
 	let previewViewportKind: PreviewViewportKind = 'desktop';
 	let previewFrameStyle = '--builder-preview-frame-width:1280px;';
+	let liveAiPreviewFrameSrcdoc = createEmptyLiveAiPreviewSrcdoc();
 	let previewLoading = true;
 	let contextBanner: PreviewContextBanner | undefined;
 	let dropTarget: DropTarget | undefined;
@@ -227,6 +234,7 @@
 	$: previewFrameStyle = previewViewportKind === 'desktop'
 		? '--builder-preview-frame-width:100%;'
 		: `--builder-preview-frame-width:${ previewViewportWidth }px;`;
+	$: liveAiPreviewFrameSrcdoc = liveAiPreviewSrcdoc || createEmptyLiveAiPreviewSrcdoc();
 	$: previewLoading = renderVersion === 0 || runtimeMeasurementVersion < renderVersion;
 	$: contextBanner = buildContextBanner();
 	$: selectedBounds = state.ui.selectedNodeIds[ 0 ]
@@ -335,6 +343,146 @@
 		}
 
 		return previewHostController;
+	}
+
+	function syncLiveAiPreview() {
+		const previewHost = ensurePreviewHostController();
+		if ( !previewHost ) {
+			return;
+		}
+		if ( !liveAiPreviewActive ) {
+			aiStandinElement?.remove();
+			aiStandinElement = undefined;
+			aiStandinIframe = undefined;
+			return;
+		}
+		ensureLiveAiPreviewStyle( previewHost.shadowRoot );
+		let created = false;
+		if ( !aiStandinElement || !aiStandinIframe || aiStandinElement.parentElement !== previewHost.mountTarget ) {
+			aiStandinElement?.remove();
+			aiStandinElement = document.createElement( 'div' );
+			aiStandinElement.className = 'builder-ai-standin';
+			aiStandinElement.dataset.builderAiStandin = 'true';
+			aiStandinElement.innerHTML = `
+				<div class="builder-ai-standin__header">
+					<span></span>
+					<small></small>
+				</div>
+				<iframe title="AI generated HTML preview"></iframe>
+			`;
+			aiStandinIframe = aiStandinElement.querySelector( 'iframe' ) ?? undefined;
+			if ( aiStandinIframe ) {
+				aiStandinIframe.setAttribute( 'sandbox', 'allow-same-origin' );
+				aiStandinIframe.addEventListener( 'load', resizeLiveAiPreviewIframe );
+			}
+			previewHost.mountTarget.prepend( aiStandinElement );
+			created = true;
+		}
+		const headerLabel = aiStandinElement.querySelector( '.builder-ai-standin__header span' );
+		const headerDetail = aiStandinElement.querySelector( '.builder-ai-standin__header small' );
+		if ( headerLabel ) {
+			headerLabel.textContent = 'HTML preview';
+		}
+		if ( headerDetail ) {
+			headerDetail.textContent = liveAiPreviewStatus || liveAiPreviewTitle || 'Waiting for generated HTML';
+		}
+		const nextSrcdoc = liveAiPreviewSrcdoc || createEmptyLiveAiPreviewSrcdoc();
+		if ( aiStandinIframe && aiStandinIframe.srcdoc !== nextSrcdoc ) {
+			aiStandinIframe.style.height = '520px';
+			aiStandinIframe.srcdoc = nextSrcdoc;
+		}
+		if ( aiStandinElement.parentElement === previewHost.mountTarget && previewHost.mountTarget.firstElementChild !== aiStandinElement ) {
+			previewHost.mountTarget.prepend( aiStandinElement );
+		}
+		if ( created ) {
+			requestAnimationFrame( () => {
+				aiStandinElement?.scrollIntoView( { block: 'start', behavior: 'smooth' } );
+			} );
+		}
+	}
+
+	function resizeLiveAiPreviewIframe() {
+		if ( !aiStandinIframe ) {
+			return;
+		}
+		try {
+			const documentElement = aiStandinIframe.contentDocument?.documentElement;
+			const body = aiStandinIframe.contentDocument?.body;
+			const height = Math.max(
+				360,
+				documentElement?.scrollHeight ?? 0,
+				body?.scrollHeight ?? 0,
+				body?.offsetHeight ?? 0,
+			);
+			aiStandinIframe.style.height = `${ height }px`;
+		} catch {
+			aiStandinIframe.style.height = '70vh';
+		}
+	}
+
+	function createEmptyLiveAiPreviewSrcdoc(): string {
+		return [
+			'<!doctype html>',
+			'<html>',
+			'<head>',
+			'<meta charset="utf-8" />',
+			'<style>',
+			'html,body{margin:0;min-height:360px;font-family:Inter,system-ui,sans-serif;background:#fff;color:#0f172a;}',
+			'body{display:grid;place-items:center;padding:32px;}',
+			'.empty{display:grid;place-items:center;gap:10px;width:min(520px,100%);min-height:220px;border:1px dashed #d004d4;border-radius:12px;background:#fdf4ff;color:#86198f;text-align:center;}',
+			'.empty strong{font-size:14px;text-transform:uppercase;letter-spacing:.08em;}',
+			'.empty span{font-size:13px;color:#64748b;}',
+			'</style>',
+			'</head>',
+			'<body><div class="empty"><strong>HTML preview</strong><span>Waiting for the AI to stream generated HTML...</span></div></body>',
+			'</html>',
+		].join( '' );
+	}
+
+	function ensureLiveAiPreviewStyle( shadowRoot: ShadowRoot ) {
+		if ( shadowRoot.querySelector( 'style[data-builder-ai-standin-style]' ) ) {
+			return;
+		}
+		const style = document.createElement( 'style' );
+		style.dataset.builderAiStandinStyle = 'true';
+		style.textContent = `
+			.builder-ai-standin {
+				display: block;
+				width: min(100%, 1180px);
+				margin: 24px auto;
+				border: 1px solid rgba(168, 85, 247, 0.55);
+				border-radius: 12px;
+				overflow: hidden;
+				background: #ffffff;
+				box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
+			}
+			.builder-ai-standin__header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 8px 12px;
+				background: linear-gradient(90deg, #111827, #312e81);
+				color: #f8fafc;
+				font: 800 12px/1.25 Inter, system-ui, sans-serif;
+			}
+			.builder-ai-standin__header small {
+				overflow: hidden;
+				color: #cbd5e1;
+				font-size: 11px;
+				font-weight: 700;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.builder-ai-standin iframe {
+				display: block;
+				width: 100%;
+				min-height: 360px;
+				border: 0;
+				background: #ffffff;
+			}
+		`;
+		shadowRoot.append( style );
 	}
 
 	function applyGeometrySnapshot( snapshot: CanvasGeometrySnapshot ) {
@@ -1376,6 +1524,21 @@
 				<div class="builder-preview__viewport-frame">
 					<div class="builder-preview__iframe-clip">
 						<div bind:this={frameShell} class="builder-preview" data-builder-preview-surface="true" title="Builder preview"></div>
+						{#if liveAiPreviewActive}
+							<div class="builder-preview__ai-standin" data-builder-ai-standin="true">
+								<div class="builder-preview__ai-standin-header">
+									<span>HTML preview</span>
+									<small>{liveAiPreviewStatus || liveAiPreviewTitle || 'Waiting for generated HTML'}</small>
+								</div>
+								<iframe
+									bind:this={aiStandinIframe}
+									title="AI generated HTML preview"
+									sandbox="allow-same-origin"
+									srcdoc={liveAiPreviewFrameSrcdoc}
+									onload={resizeLiveAiPreviewIframe}
+								></iframe>
+							</div>
+						{/if}
 						{#if previewLoading}
 							<div class="builder-preview__loading">
 								<div class="builder-preview__loading-card">
@@ -1955,6 +2118,57 @@
 		height: 100%;
 		border: 0;
 		background: var(--builder-preview-frame-bg);
+	}
+
+	.builder-preview__ai-standin {
+		position: absolute;
+		z-index: 8;
+		top: 18px;
+		left: 18px;
+		right: 18px;
+		display: flex;
+		flex-direction: column;
+		max-height: calc(100% - 36px);
+		border: 1px solid rgba(208, 4, 212, 0.72);
+		border-radius: 10px;
+		overflow: hidden;
+		background: #ffffff;
+		box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+	}
+
+	.builder-preview__ai-standin-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 8px 12px;
+		background: linear-gradient(90deg, #111827, #312e81);
+		color: #f8fafc;
+		font-size: 12px;
+		font-weight: 800;
+		line-height: 1.25;
+	}
+
+	.builder-preview__ai-standin-header span,
+	.builder-preview__ai-standin-header small {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.builder-preview__ai-standin-header small {
+		color: #cbd5e1;
+		font-size: 11px;
+	}
+
+	.builder-preview__ai-standin iframe {
+		display: block;
+		width: 100%;
+		min-height: 360px;
+		max-height: calc(100vh - 240px);
+		border: 0;
+		background: #ffffff;
 	}
 
 	.builder-preview__loading {

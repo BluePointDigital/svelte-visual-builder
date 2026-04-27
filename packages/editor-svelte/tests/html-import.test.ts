@@ -14,7 +14,7 @@ describe( 'HTML importer', () => {
 						<title>Imported Landing</title>
 						<style>
 							body { margin: 0; }
-							.hero { background: #101827; }
+							.hero { background: #101827; display: flex; }
 							@media (max-width: 640px) { .hero h1 { color: #0c9488; } }
 							@import url("https://example.com/site.css");
 						</style>
@@ -43,9 +43,16 @@ describe( 'HTML importer', () => {
 		expect( root.type ).toBe( 'container' );
 		expect( root.styles.customCss ).toContain( 'selector' );
 		expect( root.styles.customCss ).toContain( 'selector .hero' );
+		expect( root.styles.customCss ).toContain( 'background: #101827' );
+		expect( root.styles.customCss ).toContain( 'color: #0c9488' );
 		expect( root.styles.customCss ).toContain( '@media' );
 		expect( root.styles.customCss ).not.toContain( '@import' );
 		expect( hero.type ).toBe( 'container' );
+		expect( hero.layout ).toMatchObject( {
+			display: 'flex',
+			width: '100%',
+		} );
+		expect( hero.layout.direction ).toBeUndefined();
 		expect( hero.attributes ).toEqual( expect.arrayContaining( [
 			expect.objectContaining( { name: 'id', value: 'hero' } ),
 			expect.objectContaining( { name: 'class', value: 'hero' } ),
@@ -53,6 +60,9 @@ describe( 'HTML importer', () => {
 		expect( hero.styles.base ).toMatchObject( {
 			padding: '32px',
 			gap: '18px',
+		} );
+		expect( heading.styles.base ).toMatchObject( {
+			color: '#fff',
 		} );
 		expect( heading ).toMatchObject( {
 			type: 'heading',
@@ -80,6 +90,12 @@ describe( 'HTML importer', () => {
 				text: 'Start',
 				href: '/start',
 			},
+			styles: {
+				base: {
+					backgroundColor: '#2563eb',
+					color: '#fff',
+				},
+			},
 		} );
 		expect( custom.type ).toBe( 'html' );
 		expect( result.warnings ).toEqual( expect.arrayContaining( [
@@ -91,6 +107,33 @@ describe( 'HTML importer', () => {
 
 	it( 'rejects empty HTML', () => {
 		expect( () => importHtmlPackage( { html: '   ' } ) ).toThrow( /Paste HTML/ );
+	} );
+
+	it( 'keeps HTML flex rows from being overridden by imported column defaults', () => {
+		const result = importHtmlPackage( {
+			sourceName: 'row.html',
+			html: `
+				<style>
+					.hero .actions { display: flex; justify-content: center; gap: 1rem; }
+					.explicit-column { display: flex; flex-direction: column; }
+				</style>
+				<section class="hero"><div class="actions"><a class="button" href="#">One</a><a class="button" href="#">Two</a></div></section>
+				<section style="display: flex;"><a class="button" href="#">Inline One</a><a class="button" href="#">Inline Two</a></section>
+				<section class="explicit-column"><h2>Stacked</h2><p>Copy</p></section>
+			`,
+		} );
+		const root = result.project.documents[ 0 ].root[ 0 ];
+		const hero = root.children[ 0 ];
+		const row = hero.children[ 0 ];
+		const inlineRow = root.children[ 1 ];
+		const column = root.children[ 2 ];
+
+		expect( row.layout ).toMatchObject( {
+			display: 'flex',
+		} );
+		expect( row.layout.direction ).toBeUndefined();
+		expect( inlineRow.layout.direction ).toBeUndefined();
+		expect( column.layout.direction ).toBe( 'column' );
 	} );
 
 	it( 'omits undefined layout values from nested non-section containers', () => {

@@ -61,8 +61,6 @@ describe( 'plugin registry', () => {
 			'Position & Layer',
 			'Motion & Animation',
 			'Transform',
-			'Background',
-			'Border',
 			'Responsive Visibility',
 			'HTML Attributes',
 			'Custom CSS',
@@ -286,10 +284,10 @@ describe( 'plugin registry', () => {
 	} );
 
 	it( 'uses production-safe primitives for live advanced controls', () => {
-		expect( getAdvancedControl( 'container', 'background', 'background-image' )?.primitive?.kind ).toBe( 'url' );
-		expect( getAdvancedControl( 'container', 'background', 'background-position' )?.primitive ).toBeUndefined();
-		expect( getAdvancedControl( 'container', 'background', 'background-size' )?.primitive ).toBeUndefined();
-		expect( getAdvancedControl( 'container', 'border', 'box-shadow' )?.primitive ).toBeUndefined();
+		expect( getStyleControl( 'container', 'background', 'background-image' )?.primitive?.kind ).toBe( 'url' );
+		expect( getStyleControl( 'container', 'background', 'background-position' )?.primitive ).toBeUndefined();
+		expect( getStyleControl( 'container', 'background', 'background-size' )?.primitive ).toBeUndefined();
+		expect( getStyleControl( 'container', 'border', 'box-shadow' )?.primitive ).toBeUndefined();
 		expect( getAdvancedControl( 'container', 'layout', 'order' )?.primitive ).toMatchObject( {
 			kind: 'slider',
 			units: [],

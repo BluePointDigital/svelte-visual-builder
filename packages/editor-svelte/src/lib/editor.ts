@@ -55,6 +55,8 @@ import {
 	type BuilderAiSessionState,
 	type BuilderAiSettings,
 	type BuilderAiSettingsAdapter,
+	type BuilderAiToolCall,
+	type BuilderAiToolExecutionResult,
 } from './ai-core';
 import {
 	createBrowserLocalMediaAdapter,
@@ -560,6 +562,76 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 		].filter( Boolean ).join( '\n' );
 	}
 
+	function extractAiCreatePreviewFromToolCall( call: BuilderAiToolCall ): BuilderAiSessionState['createPreview'] | undefined {
+		const args = call.function.arguments.trim();
+		if ( !args ) {
+			return undefined;
+		}
+		try {
+			const parsed = JSON.parse( args ) as Record<string, unknown>;
+			const html = typeof parsed.html === 'string' ? parsed.html : '';
+			if ( !html ) {
+				return undefined;
+			}
+			return {
+				html,
+				css: typeof parsed.css === 'string' ? parsed.css : undefined,
+				title: typeof parsed.title === 'string' ? parsed.title : undefined,
+			};
+		} catch {
+			const html = readPartialJsonStringProperty( args, 'html' );
+			if ( !html ) {
+				return undefined;
+			}
+			return {
+				html,
+				css: readPartialJsonStringProperty( args, 'css' ),
+				title: readPartialJsonStringProperty( args, 'title' ),
+			};
+		}
+	}
+
+	function readPartialJsonStringProperty( source: string, key: string ): string | undefined {
+		const match = new RegExp( `"${ key }"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)`, 's' ).exec( source );
+		const value = match?.[ 1 ];
+		if ( !value ) {
+			return undefined;
+		}
+		try {
+			return JSON.parse( `"${ value.replaceAll( /(?<!\\)"/g, '\\"' ) }"` ) as string;
+		} catch {
+			return value
+				.replaceAll( '\\"', '"' )
+				.replaceAll( '\\n', '\n' )
+				.replaceAll( '\\t', '\t' )
+				.replaceAll( '\\/', '/' );
+		}
+	}
+
+	function normalizeAssistantHtmlResponse( content: string ): string {
+		const trimmed = content.trim();
+		if ( !trimmed ) {
+			return '';
+		}
+		try {
+			const parsed = JSON.parse( trimmed ) as unknown;
+			if ( parsed && typeof parsed === 'object' ) {
+				const record = parsed as Record<string, unknown>;
+				if ( typeof record.html === 'string' ) {
+					const css = typeof record.css === 'string' && record.css.trim()
+						? `<style>${ record.css }</style>`
+						: '';
+					return `${ css }${ record.html }`.trim();
+				}
+			}
+		} catch {
+			// Plain HTML or fenced HTML is the common fallback from non-tool providers.
+		}
+		const fenced = /^```(?:html)?\s*([\s\S]*?)\s*```$/i.exec( trimmed );
+		const html = fenced?.[ 1 ]?.trim() ?? trimmed;
+		return /<[a-z][\w-]*(\s|>|\/)/i.test( html ) ? html : '';
+	}
+
 	async function runAiRequest( prompt: string, mode: BuilderAiSessionState['mode'], request?: BuilderAiCreateRequest ) {
 		if ( !aiEnabled ) {
 			const message = 'AI assistant is disabled for this editor.';
@@ -572,7 +644,7 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 		const abortController = new AbortController();
 		activeAiAbortController = abortController;
 		const runId = crypto.randomUUID();
-		setAiSession( { mode, status: 'streaming', error: undefined, activeRunId: runId } );
+		setAiSession( { mode, status: 'streaming', error: undefined, activeRunId: runId, createPreview: undefined } );
 
 		try {
 			const settings = await resolveAiSettings();
@@ -594,18 +666,67 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 			].filter( Boolean ).join( '\n\n' ) );
 			let hadToolFailure = false;
 			let hadSuccessfulTool = false;
+			let assistantCreateHtml = '';
+			const deferredCreateCalls: BuilderAiToolCall[] = [];
 			await runBuilderAiAgent( {
 				settings,
 				systemPrompt,
 				userPrompt: prompt,
 				tools: toolExecutor.tools,
 				executeTool: async ( call ) => {
+					if ( mode === 'create' && call.function.name === 'add_section_from_html' ) {
+						const preview = extractAiCreatePreviewFromToolCall( call );
+						if ( !preview?.html.trim() ) {
+							return {
+								ok: false,
+								summary: 'Generated HTML tool call did not include usable HTML.',
+							};
+						}
+						deferredCreateCalls.push( call );
+						setAiSession( {
+							status: 'streaming',
+							createPreview: preview,
+							lastToolSummary: 'Generated HTML received. Parsing will start when generation completes.',
+						} );
+						return {
+							ok: true,
+							summary: 'Generated HTML received. The builder will parse it after the model finishes.',
+							data: { ...preview, deferredParse: true } as JsonValue,
+						};
+					}
 					setAiSession( { status: 'applying' } );
 					const result = await toolExecutor.executeTool( call );
 					return result;
 				},
 				onAssistantMessage: ( content ) => {
+					if ( mode === 'create' ) {
+						assistantCreateHtml = normalizeAssistantHtmlResponse( content );
+					}
 					appendAiMessage( makeAiTranscriptMessage( 'assistant', content ) );
+				},
+				onAssistantDelta: ( content ) => {
+					if ( mode !== 'create' ) {
+						return;
+					}
+					const html = normalizeAssistantHtmlResponse( content );
+					if ( html ) {
+						setAiSession( {
+							createPreview: { html },
+							lastToolSummary: 'Streaming generated HTML...',
+						} );
+					}
+				},
+				onToolCallDelta: ( call ) => {
+					if ( mode !== 'create' || call.function.name !== 'add_section_from_html' ) {
+						return;
+					}
+					const preview = extractAiCreatePreviewFromToolCall( call );
+					if ( preview?.html.trim() ) {
+						setAiSession( {
+							createPreview: preview,
+							lastToolSummary: 'Streaming generated HTML...',
+						} );
+					}
 				},
 				onToolResult: ( call, result ) => {
 					const content = result.ok ? result.summary : `Tool ${ call.function.name } failed: ${ result.summary }`;
@@ -615,22 +736,78 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 					setAiSession( { lastToolSummary: content } );
 				},
 				onDebugMessage: ( label, payload ) => {
-					appendAiMessage( makeAiTranscriptMessage( 'system', `${ label }\n\n${ JSON.stringify( payload, null, 2 ) }`, { toolName: 'debug' } ) );
+					const debugLabel = mode === 'create'
+						&& label.includes( 'Builder parsed/applied add_section_from_html' )
+						&& JSON.stringify( payload ).includes( '"deferredParse":true' )
+						? 'Builder deferred add_section_from_html'
+						: label;
+					appendAiMessage( makeAiTranscriptMessage( 'system', `${ debugLabel }\n\n${ JSON.stringify( payload, null, 2 ) }`, { toolName: 'debug' } ) );
 				},
 				signal: abortController.signal,
 			} );
+			if ( mode === 'create' && !deferredCreateCalls.length && assistantCreateHtml ) {
+				deferredCreateCalls.push( {
+					id: crypto.randomUUID(),
+					type: 'function',
+					function: {
+						name: 'add_section_from_html',
+						arguments: JSON.stringify( {
+							html: assistantCreateHtml,
+							title: 'AI Generated Section',
+							parentId: request?.targetParentId,
+							slot: request?.targetSlot,
+						} ),
+					},
+				} );
+			}
+			if ( mode === 'create' && !deferredCreateCalls.length ) {
+				throw new Error( 'AI did not return importable HTML. Try again with a more specific request, or use a provider/model that supports OpenAI-compatible tool calls.' );
+			}
+			if ( mode === 'create' && deferredCreateCalls.length ) {
+				setAiSession( {
+					status: 'applying',
+					lastToolSummary: 'Parsing generated HTML into editable Builder nodes...',
+				} );
+				for ( const call of deferredCreateCalls ) {
+					abortController.signal.throwIfAborted();
+					let result: BuilderAiToolExecutionResult;
+					try {
+						result = await toolExecutor.executeTool( call );
+					} catch ( error ) {
+						result = {
+							ok: false,
+							summary: error instanceof Error ? error.message : 'Generated HTML could not be parsed.',
+						};
+					}
+					const content = result.ok ? result.summary : `Tool ${ call.function.name } failed: ${ result.summary }`;
+					hadToolFailure ||= !result.ok;
+					hadSuccessfulTool ||= result.ok;
+					appendAiMessage( makeAiTranscriptMessage( 'tool', content, { toolName: call.function.name } ) );
+					setAiSession( { lastToolSummary: content } );
+					if ( settings.debugMode ) {
+						appendAiMessage( makeAiTranscriptMessage( 'system', `Builder parsed/applied ${ call.function.name }\n\n${ JSON.stringify( {
+							ok: result.ok,
+							summary: result.summary,
+							data: result.data,
+						}, null, 2 ) }`, { toolName: 'debug' } ) );
+					}
+					if ( !result.ok ) {
+						throw new Error( result.summary );
+					}
+				}
+			}
 			if ( aiSessionState.activeRunId === runId ) {
 				if ( hadToolFailure && !hadSuccessfulTool ) {
 					const message = aiSessionState.lastToolSummary ?? 'AI could not apply the requested change.';
 					setAiSession( { status: 'error', error: message, activeRunId: undefined } );
 				} else {
-					setAiSession( { status: 'idle', activeRunId: undefined } );
+					setAiSession( { status: 'idle', activeRunId: undefined, createPreview: undefined } );
 				}
 			}
 		} catch ( error ) {
 			if ( abortController.signal.aborted ) {
 				if ( aiSessionState.activeRunId === runId ) {
-					setAiSession( { status: 'idle', activeRunId: undefined } );
+					setAiSession( { status: 'idle', activeRunId: undefined, createPreview: undefined } );
 					appendAiMessage( makeAiTranscriptMessage( 'assistant', 'AI run cancelled.' ) );
 				}
 				return;

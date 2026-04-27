@@ -15,6 +15,32 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Draft, autosave, publish, revision, and restore contracts with reference SvelteKit behavior.
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
+## Screenshots
+
+### Main Builder
+
+The reference studio includes the full editing shell: canvas preview, left inspector, structure navigator, responsive/status controls, import tools, AI actions, draft/publish states, and host-owned page context.
+
+![Main Svelte Visual Builder interface](screenshots/main-builder.png)
+
+### Container Controls
+
+Selected containers expose compact canvas controls, layout context, action rails, and resize/layout affordances without requiring the user to leave the visual surface.
+
+![Container controls and canvas action rail](screenshots/container-controls.png)
+
+### Create With AI
+
+The AI create dialog accepts a prompt, target location, style preference, theme options, and expandable context before generating HTML/CSS through an OpenAI-compatible provider.
+
+![Create with AI dialog](screenshots/create-with-ai-window.png)
+
+### Streaming AI Preview
+
+While AI is generating, the full dialog collapses to a compact progress window and the canvas shows an HTML preview placeholder/stand-in for streamed output before it is parsed into editable Builder nodes.
+
+![Generating with AI compact progress state](screenshots/generating-with-ai.png)
+
 ## Workspace
 
 This is a pnpm monorepo.

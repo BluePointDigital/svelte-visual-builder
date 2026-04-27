@@ -39,8 +39,9 @@ export function importHtmlPackage( payload: HtmlImportPayload ): HtmlImportResul
 	const warnings: TemplateImportDiagnostic[] = [];
 	const parityGaps: TemplateImportDiagnostic[] = [];
 	const styles = [ ...parsed.querySelectorAll( 'style' ) ].map( ( element ) => element.textContent ?? '' ).filter( Boolean );
+	const stylesheet = styles.join( '\n\n' );
 	const bodyChildren = [ ...parsed.body.childNodes ];
-	const roots = importChildNodes( bodyChildren, warnings, parityGaps );
+	const roots = importChildNodes( bodyChildren, warnings, parityGaps, stylesheet );
 	if ( !roots.length ) {
 		throw new Error( 'The pasted HTML did not contain importable body content.' );
 	}
@@ -64,7 +65,7 @@ export function importHtmlPackage( payload: HtmlImportPayload ): HtmlImportResul
 				base: {
 					width: '100%',
 				},
-				customCss: scopeImportedCss( styles.join( '\n\n' ), warnings, parityGaps ),
+				customCss: scopeImportedCss( stylesheet, warnings, parityGaps ),
 			} ),
 			children: roots,
 			meta: {
@@ -81,7 +82,7 @@ export function importHtmlPackage( payload: HtmlImportPayload ): HtmlImportResul
 	};
 
 	const project = createBuilderPackage( sourceName, [ document ] );
-	project.media = collectHtmlMediaAssets( parsed, roots, styles.join( '\n\n' ) );
+	project.media = collectHtmlMediaAssets( parsed, roots, stylesheet );
 
 	return {
 		project,
@@ -90,7 +91,7 @@ export function importHtmlPackage( payload: HtmlImportPayload ): HtmlImportResul
 	};
 }
 
-function importChildNodes( nodes: Node[], warnings: TemplateImportDiagnostic[], parityGaps: TemplateImportDiagnostic[] ): BuilderNode[] {
+function importChildNodes( nodes: Node[], warnings: TemplateImportDiagnostic[], parityGaps: TemplateImportDiagnostic[], stylesheet = '' ): BuilderNode[] {
 	const output: BuilderNode[] = [];
 	for ( const node of nodes ) {
 		if ( node.nodeType === Node.TEXT_NODE ) {
@@ -103,7 +104,7 @@ function importChildNodes( nodes: Node[], warnings: TemplateImportDiagnostic[], 
 		if ( node.nodeType !== Node.ELEMENT_NODE ) {
 			continue;
 		}
-		const imported = importElementNode( node as Element, warnings, parityGaps );
+		const imported = importElementNode( node as Element, warnings, parityGaps, stylesheet );
 		if ( imported ) {
 			output.push( imported );
 		}
@@ -111,7 +112,7 @@ function importChildNodes( nodes: Node[], warnings: TemplateImportDiagnostic[], 
 	return output;
 }
 
-function importElementNode( element: Element, warnings: TemplateImportDiagnostic[], parityGaps: TemplateImportDiagnostic[] ): BuilderNode | undefined {
+function importElementNode( element: Element, warnings: TemplateImportDiagnostic[], parityGaps: TemplateImportDiagnostic[], stylesheet = '' ): BuilderNode | undefined {
 	const tag = element.tagName.toLowerCase();
 	if ( DROPPED_TAGS.has( tag ) ) {
 		if ( tag === 'script' ) {
@@ -182,15 +183,12 @@ function importElementNode( element: Element, warnings: TemplateImportDiagnostic
 	}
 
 	if ( CONTAINER_TAGS.has( tag ) ) {
-		const children = importChildNodes( [ ...element.childNodes ], warnings, parityGaps );
+		const children = importChildNodes( [ ...element.childNodes ], warnings, parityGaps, stylesheet );
+		const layout = resolveImportedHtmlContainerLayout( element, tag, stylesheet );
 		return createNode( {
 			id: crypto.randomUUID(),
 			type: 'container',
-			layout: compactJsonObject( {
-				display: 'flex',
-				direction: 'column',
-				width: tag === 'section' || tag === 'main' ? '100%' : undefined,
-			} ),
+			layout,
 			attributes: extractAttributes( element ),
 			styles: createStyleSet( { base: parseInlineStyle( element.getAttribute( 'style' ) ) } ),
 			children,
@@ -320,6 +318,80 @@ function parseInlineStyle( value: string | null ): Record<string, JsonValue> {
 		styles[ normalizeCssPropertyName( property ) ] = propertyValue;
 	}
 	return styles;
+}
+
+function resolveImportedHtmlContainerLayout( element: Element, tag: string, stylesheet: string ): Record<string, JsonValue> {
+	const inlineStyles = parseInlineStyle( element.getAttribute( 'style' ) );
+	const inlineDisplay = stringStyleValue( inlineStyles.display );
+	const inlineDirection = stringStyleValue( inlineStyles.flexDirection ?? inlineStyles[ 'flex-direction' ] );
+	const stylesheetFlex = resolveStylesheetFlexHint( element, tag, stylesheet );
+	const display = inlineDisplay || stylesheetFlex.display || 'flex';
+	const explicitFlexDisplay = inlineDisplay === 'flex' || inlineDisplay === 'inline-flex' || stylesheetFlex.display === 'flex';
+	const direction = normalizeImportedFlexDirection( inlineDirection ?? stylesheetFlex.direction )
+		?? ( display === 'flex' && explicitFlexDisplay ? undefined : 'column' );
+	return compactJsonObject( {
+		display,
+		direction,
+		width: tag === 'section' || tag === 'main' ? '100%' : undefined,
+	} );
+}
+
+function stringStyleValue( value: JsonValue | undefined ): string | undefined {
+	return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeImportedFlexDirection( value: string | undefined ): string | undefined {
+	const normalized = value?.trim().toLowerCase().replaceAll( '_', '-' );
+	return normalized && [ 'row', 'row-reverse', 'column', 'column-reverse' ].includes( normalized )
+		? normalized
+		: undefined;
+}
+
+function resolveStylesheetFlexHint( element: Element, tag: string, stylesheet: string ): { display?: string; direction?: string } {
+	if ( !stylesheet.trim() ) {
+		return {};
+	}
+	let hint: { display?: string; direction?: string } = {};
+	const rulePattern = /([^{}@]+)\{([^{}]*)\}/g;
+	for ( const match of stylesheet.matchAll( rulePattern ) ) {
+		const selectorText = match[ 1 ] ?? '';
+		const declarations = match[ 2 ] ?? '';
+		if ( !selectorText.split( ',' ).some( ( selector ) => matchesImportedElementSelector( element, selector ) ) ) {
+			continue;
+		}
+		const declarationMap = parseInlineStyle( declarations );
+		const display = stringStyleValue( declarationMap.display );
+		const direction = normalizeImportedFlexDirection( stringStyleValue( declarationMap.flexDirection ?? declarationMap[ 'flex-direction' ] ) );
+		hint = {
+			display: display === 'flex' || display === 'inline-flex' ? 'flex' : hint.display,
+			direction: direction ?? hint.direction,
+		};
+	}
+	return hint;
+}
+
+function matchesImportedElementSelector( element: Element, selector: string ): boolean {
+	const normalized = selector.trim();
+	if ( !normalized || /(^|[\s>+~])(:root|html|body)(?=$|[\s.#:[>+~])/i.test( normalized ) ) {
+		return false;
+	}
+	const withoutState = normalized
+		.replaceAll( /:(hover|active|focus|focus-visible|visited|disabled|checked)\b/gi, '' )
+		.replaceAll( /::[a-z-]+/gi, '' )
+		.trim();
+	try {
+		return Boolean( withoutState ) && element.matches( withoutState );
+	} catch {
+		const lastCompound = withoutState.split( /[\s>+~]+/ ).filter( Boolean ).at( -1 );
+		if ( !lastCompound ) {
+			return false;
+		}
+		try {
+			return element.matches( lastCompound );
+		} catch {
+			return false;
+		}
+	}
 }
 
 function compactJsonObject( value: Record<string, JsonValue | undefined> ): Record<string, JsonValue> {

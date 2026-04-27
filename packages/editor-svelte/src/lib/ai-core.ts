@@ -43,6 +43,11 @@ export interface BuilderAiSessionState {
 	error?: string;
 	activeRunId?: string;
 	lastToolSummary?: string;
+	createPreview?: {
+		html: string;
+		css?: string;
+		title?: string;
+	};
 }
 
 export interface BuilderAiToolDefinition {

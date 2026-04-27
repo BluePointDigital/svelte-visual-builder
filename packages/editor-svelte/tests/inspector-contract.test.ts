@@ -39,8 +39,6 @@ describe( 'inspector contract', () => {
 			'Position & Layer',
 			'Motion & Animation',
 			'Transform',
-			'Background',
-			'Border',
 			'Responsive Visibility',
 			'HTML Attributes',
 			'Custom CSS',
