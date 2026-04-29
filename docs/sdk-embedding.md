@@ -83,6 +83,80 @@ Media should also be host-owned:
 
 The builder stores serialized project/media metadata, but credentials, database records, object storage keys, and authorization rules remain host concerns.
 
+## Host Extension
+
+Use a host extension when an app needs to register builder elements, dynamic data, adapters, and permissions as one reusable module.
+
+```ts
+import {
+	createBuilderRegistry,
+	applyBuilderHostExtension,
+	defineBuilderHostExtension,
+	defineBuilderElement,
+	defineBuilderDynamicProvider,
+	defineBuilderBindingProvider,
+} from '@builder/plugin-api';
+import { createRuntimeComponentMap } from '@builder/runtime-svelte';
+import BookingWidget from './components/BookingWidget.svelte';
+import ServiceList from './components/ServiceList.svelte';
+
+export function createCmsBuilderExtension() {
+	return defineBuilderHostExtension({
+		elements: [
+			defineBuilderElement({
+				type: 'booking-widget',
+				label: 'Booking Widget',
+				category: 'interactive',
+				propSchema: bookingWidgetProps,
+				styleSchema: bookingWidgetStyles,
+				styleContract: bookingWidgetStyleContract,
+				defaults: { props: { title: 'Book an appointment' } },
+				panelSections: bookingWidgetPanels,
+				contentSections: bookingWidgetPanels,
+				styleSections: [],
+				advancedSections: [],
+				runtime: { family: 'html', tag: 'section', acceptsChildren: false },
+				createDefaultNode: () => createBookingWidgetNode(),
+			}),
+		],
+		bindingProviders: [
+			defineBuilderBindingProvider({
+				id: 'site',
+				label: 'CMS Site',
+				resolve: (binding, context) => context.siteData?.[binding.path],
+			}),
+		],
+		dynamicProviders: [
+			defineBuilderDynamicProvider({
+				id: 'service-list',
+				label: 'Services',
+				group: 'CMS',
+				categories: ['object'],
+				resolve: (context) => context.collections?.services ?? [],
+			}),
+		],
+		media,
+		persistence,
+		permissions: {
+			publish: user.canPublish || 'Only publishers can publish.',
+			uploadMedia: user.canUploadMedia,
+		},
+	});
+}
+
+const registry = applyBuilderHostExtension(
+	createBuilderRegistry(),
+	createCmsBuilderExtension()
+);
+
+const runtimeComponents = createRuntimeComponentMap({
+	'booking-widget': BookingWidget,
+	'service-list': ServiceList,
+});
+```
+
+Pass the same extension to `createBuilderHostSdk({ extension, runtimeComponents })` for editor preview, and pass `runtimeComponents` to `<BuilderRenderer />` or `renderPublishedDocument()` for published routes. Runtime component props receive resolved `props`, builder `attributes`, `style`, `className`, `node`, `model`, `record`, and rendered child content.
+
 ## Auth And Permissions
 
 Use the `permissions` option to hide or block restricted actions in the editor:
@@ -140,7 +214,11 @@ Use:
 pnpm embed:validate
 ```
 
-This runs the normal project gates plus the embed fixture check/build/E2E pass. Before embedding in a real app, also run that host app’s production build and inspect its route chunks to confirm editor-only code is deferred from runtime-only pages.
+This runs the normal project gates plus the embed fixture check/build/E2E pass. Before embedding in a real app, also run that host app's production build and inspect its route chunks to confirm editor-only code is deferred from runtime-only pages.
+
+## Complete Reference
+
+For the full feature and API reference, including schema, engine commands, runtime helpers, imports, media, AI, custom elements, and troubleshooting, see [builder-documentation.md](builder-documentation.md).
 
 ## Deployment Checklist
 

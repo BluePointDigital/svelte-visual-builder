@@ -1,5 +1,7 @@
 # Svelte Visual Builder
 
+Version 0.2.0
+
 A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svelte applications. It provides an Elementor-style editing experience while keeping persistence, media storage, auth, dynamic data, and AI provider settings owned by the host app.
 
 ## Highlights
@@ -92,6 +94,13 @@ Run the embedding validation gate:
 pnpm embed:validate
 ```
 
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [Full Builder Documentation](docs/builder-documentation.md) | End-to-end feature, architecture, schema, SDK, runtime, import, AI, and API reference. |
+| [SDK Embedding Guide](docs/sdk-embedding.md) | Focused production embedding guide for Svelte/SvelteKit hosts. |
+
 ## Embedding In A Svelte App
 
 Host apps should import from package roots only:
@@ -114,7 +123,7 @@ The host app owns:
 - dynamic provider data,
 - AI settings and API keys.
 
-See [docs/sdk-embedding.md](docs/sdk-embedding.md) for the full integration guide.
+See [docs/builder-documentation.md](docs/builder-documentation.md) for the full end-to-end documentation and [docs/sdk-embedding.md](docs/sdk-embedding.md) for the focused embedding guide.
 
 ## Import Features
 
