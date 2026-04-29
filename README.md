@@ -17,6 +17,15 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Draft, autosave, publish, revision, and restore contracts with reference SvelteKit behavior.
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
+## Latest Changes
+
+### Version 0.2.0 - 2026-04-29
+
+- Added [full builder documentation](docs/builder-documentation.md) with end-to-end architecture, schema, SDK, runtime, SvelteKit, import, media, AI, extension, and troubleshooting details.
+- Added a [changelog](CHANGELOG.md) with semantic versioning rules and release notes.
+- Expanded the [SDK embedding guide](docs/sdk-embedding.md) with host extension and runtime component integration details.
+- Bumped the root workspace, reference apps, and all builder package manifests to `0.2.0`.
+
 ## Screenshots
 
 ### Main Builder
