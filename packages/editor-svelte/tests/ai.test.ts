@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-import { createBuilderPackage, createEmptyDocument, createNode } from '@builder/schema';
-import { buildOpenAiCompatibleRequest, createBrowserAiSettingsAdapter, createDefaultAiSettings, normalizeAiChatCompletionsUrl, parseSseFrame, redactAiSettings } from '../src/lib/ai';
+import { createBuilderPackage, createEmptyDocument, createNode, createThemeAssignment } from '@builder/schema';
+import { buildOpenAiCompatibleRequest, createBrowserAiSettingsAdapter, createDefaultAiSettings, normalizeAiChatCompletionsUrl, parseSseFrame, redactAiSettings, runBuilderAiAgent } from '../src/lib/ai';
 import { analyzeGeneratedHtmlQuality, getModelFacingAiTools } from '../src/lib/ai-tools';
 import { createBuilderEditor } from '../src/lib/editor';
 
@@ -32,6 +32,7 @@ describe( 'AI builder assistant', () => {
 			model: 'openai/gpt-4.1-mini',
 			apiKey: 'secret-key',
 			headers: { Authorization: 'Bearer hidden', 'X-App': 'Builder' },
+			maxToolIterations: 9,
 		} );
 
 		await adapter.saveSettings( settings );
@@ -39,6 +40,7 @@ describe( 'AI builder assistant', () => {
 		await expect( adapter.loadSettings() ).resolves.toMatchObject( {
 			provider: 'openrouter',
 			apiKey: 'secret-key',
+			maxToolIterations: 9,
 		} );
 		expect( redactAiSettings( settings ) ).toMatchObject( {
 			apiKey: '[redacted]',
@@ -47,6 +49,13 @@ describe( 'AI builder assistant', () => {
 				'X-App': 'Builder',
 			},
 		} );
+	} );
+
+	it( 'defaults and clamps AI max tool iterations', () => {
+		expect( createDefaultAiSettings().maxToolIterations ).toBe( 6 );
+		expect( createDefaultAiSettings( { maxToolIterations: 0 } ).maxToolIterations ).toBe( 1 );
+		expect( createDefaultAiSettings( { maxToolIterations: 25 } ).maxToolIterations ).toBe( 20 );
+		expect( createDefaultAiSettings( { maxToolIterations: Number.NaN } ).maxToolIterations ).toBe( 6 );
 	} );
 
 	it( 'formats OpenAI-compatible requests and SSE frames', () => {
@@ -87,14 +96,32 @@ describe( 'AI builder assistant', () => {
 			'apply_brand_palette',
 			'convert_selection_to_pricing',
 			'convert_selection_to_hero',
-			'add_cta_block',
 		] ) );
 		expect( editToolNames ).not.toContain( 'update_node' );
 		expect( editToolNames ).not.toContain( 'create_node_batch' );
+		expect( editToolNames ).not.toContain( 'add_section_from_html' );
+		expect( editToolNames ).not.toContain( 'add_cta_block' );
 
 		const createToolNames = getModelFacingAiTools( 'create' ).map( ( tool ) => tool.function.name );
 		expect( createToolNames ).toContain( 'add_section_from_html' );
 		expect( createToolNames ).not.toContain( 'update_node' );
+	} );
+
+	it( 'allows full-section creation in edit mode only when the active document is empty', () => {
+		const emptyEditToolNames = getModelFacingAiTools( 'edit', { allowCreateInEdit: true } ).map( ( tool ) => tool.function.name );
+		expect( emptyEditToolNames ).toContain( 'add_section_from_html' );
+		expect( emptyEditToolNames ).not.toContain( 'add_cta_block' );
+	} );
+
+	it( 'keeps Gemini-facing typography schemas free of mixed primitive unions', () => {
+		const typographyTool = getModelFacingAiTools( 'edit' ).find( ( tool ) => tool.function.name === 'set_node_typography' );
+		const properties = typographyTool?.function.parameters.properties as Record<string, { type?: string | string[]; description?: string }> | undefined;
+
+		expect( properties?.fontWeight ).toMatchObject( {
+			type: [ 'string', 'null' ],
+			description: expect.stringContaining( '"700"' ),
+		} );
+		expect( findMixedPrimitiveTypeArrays( typographyTool?.function.parameters ?? {} ) ).toEqual( [] );
 	} );
 
 	it( 'detects low-detail generated HTML before mutation', () => {
@@ -103,6 +130,98 @@ describe( 'AI builder assistant', () => {
 			'<section class="hero"><h1>Premium restaurant</h1><p>Reserve a memorable table with seasonal dishes and warm service.</p><a href="#">Book now</a></section>',
 			'.hero { padding: 4rem; background: #111827; color: white; }',
 		) ).toMatchObject( { ok: true } );
+	} );
+
+	it( 'stops after a successful terminal mutation tool without a second model request', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'set_node_background', {
+			nodeId: 'hero',
+			color: 'orange',
+		} ) ] ) ) as typeof fetch;
+		const assistantMessages: string[] = [];
+
+		await runBuilderAiAgent( {
+			settings: createDefaultAiSettings( { baseUrl: 'https://mock-ai.test/v1', model: 'mock-model' } ),
+			systemPrompt: 'system',
+			userPrompt: 'user',
+			tools: [],
+			executeTool: async () => ( {
+				ok: true,
+				summary: 'Updated container background.',
+				terminal: true,
+				assistantMessage: 'Done.',
+			} ),
+			onAssistantMessage: ( content ) => assistantMessages.push( content ),
+		} );
+
+		expect( globalThis.fetch ).toHaveBeenCalledTimes( 1 );
+		expect( assistantMessages ).toEqual( [ 'Done.' ] );
+	} );
+
+	it( 'allows non-terminal read tools to continue to another model iteration', async () => {
+		globalThis.fetch = vi.fn()
+			.mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'inspect_current_document', {} ) ] ) )
+			.mockResolvedValueOnce( sseResponse( [ finalChunk() ] ) ) as typeof fetch;
+		const assistantMessages: string[] = [];
+
+		await runBuilderAiAgent( {
+			settings: createDefaultAiSettings( { baseUrl: 'https://mock-ai.test/v1', model: 'mock-model' } ),
+			systemPrompt: 'system',
+			userPrompt: 'user',
+			tools: [],
+			executeTool: async () => ( {
+				ok: true,
+				summary: 'Inspected document.',
+			} ),
+			onAssistantMessage: ( content ) => assistantMessages.push( content ),
+		} );
+
+		expect( globalThis.fetch ).toHaveBeenCalledTimes( 2 );
+		expect( assistantMessages ).toEqual( [ 'Done.' ] );
+	} );
+
+	it( 'stops repeated successful tool calls without executing duplicate mutations', async () => {
+		const repeatedCall = toolCallChunk( 'set_node_background', { nodeId: 'hero', color: 'orange' } );
+		globalThis.fetch = vi.fn()
+			.mockResolvedValueOnce( sseResponse( [ repeatedCall ] ) )
+			.mockResolvedValueOnce( sseResponse( [ repeatedCall ] ) ) as typeof fetch;
+		const executeTool = vi.fn().mockResolvedValue( {
+			ok: true,
+			summary: 'Updated container background.',
+			terminal: true,
+		} );
+		const assistantMessages: string[] = [];
+
+		await runBuilderAiAgent( {
+			settings: createDefaultAiSettings( { baseUrl: 'https://mock-ai.test/v1', model: 'mock-model' } ),
+			systemPrompt: 'system',
+			userPrompt: 'user',
+			tools: [],
+			executeTool,
+			onAssistantMessage: ( content ) => assistantMessages.push( content ),
+		} );
+
+		expect( executeTool ).toHaveBeenCalledTimes( 1 );
+		expect( assistantMessages.at( -1 ) ).toBe( 'Updated container background.' );
+	} );
+
+	it( 'errors before the iteration cap when a failed tool call repeats unchanged', async () => {
+		const repeatedCall = toolCallChunk( 'set_node_background', { nodeId: 'missing', color: 'orange' } );
+		globalThis.fetch = vi.fn()
+			.mockResolvedValueOnce( sseResponse( [ repeatedCall ] ) )
+			.mockResolvedValueOnce( sseResponse( [ repeatedCall ] ) ) as typeof fetch;
+
+		await expect( runBuilderAiAgent( {
+			settings: createDefaultAiSettings( { baseUrl: 'https://mock-ai.test/v1', model: 'mock-model', maxToolIterations: 6 } ),
+			systemPrompt: 'system',
+			userPrompt: 'user',
+			tools: [],
+			executeTool: async () => ( {
+				ok: false,
+				summary: 'Node not found: missing.',
+			} ),
+		} ) ).rejects.toThrow( 'AI repeated the same failing tool call without changing arguments: set_node_background' );
+
+		expect( globalThis.fetch ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'startAiCreate streams HTML into editable Builder nodes', async () => {
@@ -159,6 +278,60 @@ describe( 'AI builder assistant', () => {
 		expect( root[ 0 ].children[ 0 ].children.map( ( node ) => node.type ) ).toEqual( [ 'heading', 'paragraph', 'button' ] );
 		expect( root[ 0 ].children[ 0 ].children[ 0 ].props.text ).toBe( 'AI Hero' );
 		expect( editor.getAiSession().messages.some( ( message ) => message.role === 'tool' && message.content.includes( 'imported HTML' ) ) ).toBe( true );
+	} );
+
+	it( 'edit mode can create a full section when an empty page request explicitly asks to add content', async () => {
+		const document = createEmptyDocument( 'page', 'Empty Page', 'empty-page' );
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ), {
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'add_section_from_html', {
+			title: 'Improved Page',
+			css: '.empty-hero { background: #111827; color: white; padding: 4rem; }',
+			html: '<section class="empty-hero"><h1>Improved Page</h1><p>A more exciting design with enough copy to import cleanly.</p><a class="btn" href="#">Start</a></section>',
+		} ) ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Create a full hero section for this empty page' );
+
+		const root = editor.engine.getState().project.documents[ 0 ].root;
+		expect( root ).toHaveLength( 1 );
+		expect( root[ 0 ].children[ 0 ].children.map( ( node ) => node.type ) ).toEqual( [ 'heading', 'paragraph', 'button' ] );
+		expect( editor.getAiSession().messages.some( ( message ) => message.role === 'tool' && message.content.includes( 'imported HTML' ) ) ).toBe( true );
+	} );
+
+	it( 'edit mode rejects add_section_from_html for broad improvement requests', async () => {
+		const document = createEmptyDocument( 'page', 'Empty Page', 'empty-page' );
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ), {
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		globalThis.fetch = vi.fn()
+			.mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'add_section_from_html', {
+				html: '<section><h1>Unexpected append</h1><p>This should not be inserted.</p></section>',
+			} ) ] ) )
+			.mockResolvedValueOnce( sseResponse( [ finalChunk() ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Improve the page design overall' );
+
+		expect( editor.engine.getState().project.documents[ 0 ].root ).toHaveLength( 0 );
+		expect( editor.getAiSession().messages.some( ( message ) => message.role === 'tool' && message.content.includes( 'only available in Create with AI' ) ) ).toBe( true );
 	} );
 
 	it( 'debug mode records sent prompts, returned tool args, and parsed HTML nodes', async () => {
@@ -239,6 +412,81 @@ describe( 'AI builder assistant', () => {
 		editor.undo();
 		hero = editor.engine.getState().project.documents[ 0 ].root[ 0 ];
 		expect( hero.styles.base.backgroundColor ).toBeUndefined();
+	} );
+
+	it( 'semantic page style edits fall back to the current broad page target when the model uses a stale id', async () => {
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		document.root = [ createNode( {
+			id: 'current-hero',
+			type: 'container',
+			children: [
+				createNode( { id: 'current-title', type: 'heading', props: { text: 'Current page', level: 'h1' } } ),
+			],
+		} ) ];
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ), {
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'improve_section_visual_style', {
+			targetNodeId: 'stale-model-id',
+			backgroundColor: '#ecfeff',
+			textColor: '#083344',
+			style: 'premium',
+		} ) ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Continue improving the page' );
+
+		const hero = editor.engine.getState().project.documents[ 0 ].root[ 0 ];
+		expect( hero.id ).toBe( 'current-hero' );
+		expect( hero.styles.base.backgroundColor ).toBe( '#ecfeff' );
+		expect( hero.styles.base.padding ).toContain( 'clamp' );
+		expect( editor.getAiSession().status ).toBe( 'idle' );
+	} );
+
+	it( 'semantic page style edits resolve exact node ids across project documents', async () => {
+		const activeDocument = createEmptyDocument( 'page', 'Marketing Landing', 'marketing-landing' );
+		const visibleDocument = createEmptyDocument( 'template', 'Visible Template', 'visible-template' );
+		visibleDocument.root = [ createNode( {
+			id: 'visible-hero',
+			type: 'container',
+			styles: { base: { padding: '24px' }, states: {}, breakpoints: {}, stateBreakpoints: {}, customCss: '' },
+			children: [
+				createNode( { id: 'visible-heading', type: 'heading', props: { text: 'Visible page', level: 'h1' } } ),
+			],
+		} ) ];
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ activeDocument, visibleDocument ] ), {
+			activeDocumentId: activeDocument.id,
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'apply_brand_palette', {
+			targetNodeId: 'visible-hero',
+			primaryColor: '#7c3aed',
+			backgroundColor: '#f5f3ff',
+			textColor: '#1e1b4b',
+		} ) ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Make the entire visible page better' );
+
+		expect( editor.engine.getState().project.documents.find( ( entry ) => entry.id === activeDocument.id )?.root ).toHaveLength( 0 );
+		expect( editor.engine.getState().project.documents.find( ( entry ) => entry.id === visibleDocument.id )?.root[ 0 ].styles.base.backgroundColor ).toBe( '#f5f3ff' );
+		expect( editor.getAiSession().status ).toBe( 'idle' );
 	} );
 
 	it( 'semantic match style copies visual styles from source to selected target', async () => {
@@ -410,6 +658,131 @@ describe( 'AI builder assistant', () => {
 		expect( hero.styles.base.backgroundColor ).toBe( 'orange' );
 	} );
 
+	it( 'sends compact full-page context when editing without a selected node', async () => {
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		document.root = [
+			createNode( {
+				id: 'hero',
+				type: 'container',
+				name: 'Hero Section',
+				styles: { base: { display: 'flex', padding: '48px', backgroundColor: '#fff7ed' }, states: {}, breakpoints: {}, stateBreakpoints: {}, customCss: '' },
+				children: [
+					createNode( { id: 'hero-heading', type: 'heading', props: { text: 'Build visually', level: 'h1' } } ),
+					createNode( { id: 'hero-copy', type: 'paragraph', props: { text: 'A visual builder for Svelte apps.' } } ),
+				],
+			} ),
+			createNode( {
+				id: 'features',
+				type: 'container',
+				name: 'Feature Grid',
+				children: [
+					createNode( { id: 'feature-heading', type: 'heading', props: { text: 'Powerful features', level: 'h2' } } ),
+				],
+			} ),
+		];
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ), {
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ finalChunk() ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Improve the page design overall' );
+
+		const request = JSON.parse( String( ( globalThis.fetch as ReturnType<typeof vi.fn> ).mock.calls[ 0 ][ 1 ].body ) ) as { messages: Array<{ role: string; content: string }> };
+		const systemPrompt = request.messages.find( ( message ) => message.role === 'system' )?.content ?? '';
+		expect( systemPrompt ).toContain( 'Full page context' );
+		expect( systemPrompt ).toContain( '"id":"hero"' );
+		expect( systemPrompt ).toContain( '"id":"hero-heading"' );
+		expect( systemPrompt ).toContain( '"id":"features"' );
+		expect( systemPrompt ).toContain( 'If no node is selected, use the full page context' );
+	} );
+
+	it( 'uses the preview document as the default AI edit target', async () => {
+		const activeDocument = createEmptyDocument( 'page', 'Marketing Landing', 'marketing-landing' );
+		const previewDocument = createEmptyDocument( 'layout', 'Global Header', 'global-header' );
+		previewDocument.root = [ createNode( { id: 'preview-hero', type: 'container', styles: { base: { padding: '20px' }, states: {}, breakpoints: {}, stateBreakpoints: {}, customCss: '' } } ) ];
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ activeDocument, previewDocument ] ), {
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		editor.setPreviewContext( { documentId: previewDocument.id } );
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'set_node_background', {
+			nodeId: 'preview-hero',
+			color: 'orange',
+		} ) ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Change the visible hero background to orange' );
+
+		expect( editor.engine.getState().project.documents.find( ( entry ) => entry.id === activeDocument.id )?.root ).toHaveLength( 0 );
+		expect( editor.engine.getState().project.documents.find( ( entry ) => entry.id === previewDocument.id )?.root[ 0 ].styles.base.backgroundColor ).toBe( 'orange' );
+	} );
+
+	it( 'uses rendered assignment context when the active page document is empty', async () => {
+		const activeDocument = createEmptyDocument( 'page', 'Marketing Landing', 'marketing-landing' );
+		const assignedTemplate = createEmptyDocument( 'template', 'Marketing Template', 'marketing-template' );
+		assignedTemplate.root = [
+			createNode( {
+				id: 'assigned-hero',
+				type: 'container',
+				name: 'Rendered Hero',
+				styles: { base: { padding: '32px' }, states: {}, breakpoints: {}, stateBreakpoints: {}, customCss: '' },
+				children: [
+					createNode( { id: 'assigned-heading', type: 'heading', props: { text: 'Visible assigned page', level: 'h1' } } ),
+				],
+			} ),
+		];
+		const assignment = createThemeAssignment( {
+			documentId: assignedTemplate.id,
+			slot: 'page',
+			status: 'published',
+			pathname: '/marketing-landing',
+		} );
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ activeDocument, assignedTemplate ], [ assignment ] ), {
+			activeDocumentId: activeDocument.id,
+			ai: {
+				settings: {
+					loadSettings: async () => createDefaultAiSettings( {
+						baseUrl: 'https://mock-ai.test/v1',
+						model: 'mock-model',
+						apiKey: 'test',
+					} ),
+					saveSettings: async () => {},
+				},
+			},
+		} );
+		editor.setPreviewContext( { pathname: '/marketing-landing', query: '', slot: undefined, documentId: activeDocument.id } );
+		globalThis.fetch = vi.fn().mockResolvedValueOnce( sseResponse( [ toolCallChunk( 'set_node_background', {
+			nodeId: 'assigned-hero',
+			color: 'orange',
+		} ) ] ) ) as typeof fetch;
+
+		await editor.sendAiMessage( 'Make the page as a whole more visually appealing' );
+
+		const request = JSON.parse( String( ( globalThis.fetch as ReturnType<typeof vi.fn> ).mock.calls[ 0 ][ 1 ].body ) ) as { messages: Array<{ role: string; content: string }>; tools: Array<{ function: { name: string } }> };
+		const systemPrompt = request.messages.find( ( message ) => message.role === 'system' )?.content ?? '';
+		expect( systemPrompt ).toContain( `Preview/edit context document: ${ assignedTemplate.title }` );
+		expect( systemPrompt ).toContain( '"id":"assigned-hero"' );
+		expect( request.tools.map( ( tool ) => tool.function.name ) ).not.toContain( 'add_section_from_html' );
+		expect( editor.engine.getState().project.documents.find( ( entry ) => entry.id === activeDocument.id )?.root ).toHaveLength( 0 );
+		expect( editor.engine.getState().project.documents.find( ( entry ) => entry.id === assignedTemplate.id )?.root[ 0 ].styles.base.backgroundColor ).toBe( 'orange' );
+	} );
+
 	it( 'reports provider errors without mutating the document', async () => {
 		const document = createEmptyDocument( 'page', 'Home', 'home' );
 		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ), {
@@ -434,6 +807,17 @@ describe( 'AI builder assistant', () => {
 		expect( editor.getAiSession().error ).toContain( 'https://mock-ai.test/v1/chat/completions' );
 	} );
 } );
+
+function findMixedPrimitiveTypeArrays( value: unknown ): string[][] {
+	if ( Array.isArray( value ) ) {
+		const primitiveTypes = value.filter( ( entry ) => typeof entry === 'string' && entry !== 'null' );
+		return primitiveTypes.length > 1 ? [ primitiveTypes as string[] ] : [];
+	}
+	if ( value && typeof value === 'object' ) {
+		return Object.values( value ).flatMap( findMixedPrimitiveTypeArrays );
+	}
+	return [];
+}
 
 function toolCallChunk( name: string, args: Record<string, unknown> ) {
 	return {

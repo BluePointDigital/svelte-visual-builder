@@ -968,22 +968,25 @@
 	}
 
 	function handleInteractionCoreDragEnd( event: InteractionCoreDragEvent ) {
+		currentInteractionCoreDragOperation = event.operation;
 		if ( !editor.engine.getState().ui.dragSession ) {
+			currentInteractionCoreDragOperation = undefined;
 			return;
 		}
 
 		const clientPoint = resolveInteractionCoreDragPoint( event );
-		if ( clientPoint ) {
+		editor.flushTransientDrag();
+		if ( !editor.engine.getState().ui.dropTarget && clientPoint ) {
 			syncInteractionCoreDrag( clientPoint.clientX, clientPoint.clientY, 'immediate' );
-		} else {
-			editor.flushTransientDrag();
 		}
 
 		if ( event.canceled || !editor.engine.getState().ui.dropTarget ) {
+			currentInteractionCoreDragOperation = undefined;
 			editor.cancelDrag();
 			return;
 		}
 
+		currentInteractionCoreDragOperation = undefined;
 		editor.commitDrag();
 	}
 
@@ -1309,6 +1312,7 @@
 				headers,
 				temperature: Number( aiSettingsForm.temperature ),
 				maxOutputTokens: Number( aiSettingsForm.maxOutputTokens ),
+				maxToolIterations: Number( aiSettingsForm.maxToolIterations ),
 			} );
 			await editor.saveAiSettings( aiSettingsForm );
 			aiSettingsStatus = 'success';
@@ -1720,6 +1724,10 @@
 						<label class="builder-shell__context-field">
 							<span>Max output tokens</span>
 							<input type="number" min="256" step="256" bind:value={aiSettingsForm.maxOutputTokens} />
+						</label>
+						<label class="builder-shell__context-field">
+							<span>Max tool iterations</span>
+							<input type="number" min="1" max="20" step="1" bind:value={aiSettingsForm.maxToolIterations} />
 						</label>
 					</div>
 					<label class="builder-shell__context-field">

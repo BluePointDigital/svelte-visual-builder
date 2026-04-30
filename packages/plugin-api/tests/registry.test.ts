@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
-import { createDefaultBuilderRegistry } from '../src/index';
+import { createNode, createStyleSet } from '@builder/schema';
+import {
+	applyBuilderHostExtension,
+	createBuilderRegistry,
+	createDefaultBuilderRegistry,
+	defineBuilderBindingProvider,
+	defineBuilderDocumentType,
+	defineBuilderDynamicProvider,
+	defineBuilderElement,
+	defineBuilderExperiment,
+	defineBuilderHostExtension,
+	defineBuilderTemplateCondition,
+} from '../src/index';
 
 describe( 'plugin registry', () => {
 	function getAdvancedControl( type: string, sectionId: string, key: string ) {
@@ -40,6 +53,92 @@ describe( 'plugin registry', () => {
 		expect( registry.elements.get( 'social-icons' )?.runtime.family ).toBe( 'menu' );
 		expect( registry.createElementNode( 'form-field-text' ).props.markup ).toContain( '<input type="text"' );
 		expect( registry.documentTypes.get( 'component' )?.label ).toBe( 'Component' );
+	} );
+
+	it( 'applies complete host extensions to every registry-backed surface', () => {
+		const customElement = defineBuilderElement( {
+			type: 'booking-widget',
+			label: 'Booking Widget',
+			category: 'interactive',
+			propSchema: z.object( { title: z.string() } ).passthrough(),
+			styleSchema: z.object( {} ).passthrough(),
+			styleContract: {
+				editableTargets: [ 'base' ],
+				supportsBreakpoints: true,
+				supportsStates: false,
+				supportsTokens: true,
+				supportsLogicalProperties: true,
+				properties: [],
+			},
+			defaults: {
+				props: { title: 'Book now' },
+				styles: { base: { padding: '16px' } },
+			},
+			panelSections: [],
+			contentSections: [],
+			styleSections: [],
+			advancedSections: [],
+			runtime: {
+				family: 'html',
+				tag: 'section',
+				acceptsChildren: true,
+			},
+			createDefaultNode: () => createNode( {
+				type: 'booking-widget',
+				props: { title: 'Book now' },
+				styles: createStyleSet( { base: { padding: '16px' } } ),
+			} ),
+		} );
+		const extension = defineBuilderHostExtension( {
+			elements: [ customElement ],
+			documentTypes: [ defineBuilderDocumentType( { kind: 'page', label: 'Host Page' } ) ],
+			bindingProviders: [ defineBuilderBindingProvider( {
+				id: 'site',
+				label: 'Host Site',
+				resolve: ( binding, context ) => context.record?.[ binding.path ],
+			} ) ],
+			dynamicProviders: [ defineBuilderDynamicProvider( {
+				id: 'booking-title',
+				label: 'Booking Title',
+				group: 'CMS',
+				categories: [ 'text' ],
+				resolve: ( context ) => context.record?.title,
+			} ) ],
+			templateConditions: [ defineBuilderTemplateCondition( {
+				source: 'route',
+				label: 'Route',
+				matches: ( rule, context ) => context.pathname.startsWith( String( rule.value ?? '' ) ),
+			} ) ],
+			experiments: [ defineBuilderExperiment( {
+				id: 'cms-extension',
+				label: 'CMS Extension',
+				description: 'Enables host CMS widgets.',
+			} ) ],
+		} );
+		const registry = createBuilderRegistry();
+
+		expect( applyBuilderHostExtension( registry, extension ) ).toBe( registry );
+		expect( registry.elements.get( 'booking-widget' ) ).toBe( customElement );
+		expect( registry.createElementNode( 'booking-widget' ).props.title ).toBe( 'Book now' );
+		expect( registry.documentTypes.get( 'page' )?.label ).toBe( 'Host Page' );
+		expect( registry.bindingProviders.get( 'site' )?.resolve( {
+			id: 'binding',
+			targetKind: 'prop',
+			target: 'title',
+			source: 'site',
+			path: 'title',
+			args: {},
+		}, { record: { title: 'Resolved' } } ) ).toBe( 'Resolved' );
+		expect( registry.dynamicProviders.get( 'booking-title' )?.resolve( { record: { title: 'Provider title' } } ) ).toBe( 'Provider title' );
+		expect( registry.templateConditions.get( 'route' )?.matches( {
+			id: 'condition',
+			source: 'route',
+			operator: 'startsWith',
+			path: 'pathname',
+			value: '/book',
+			values: [],
+		}, { pathname: '/book/demo' } ) ).toBe( true );
+		expect( registry.experiments.get( 'cms-extension' )?.label ).toBe( 'CMS Extension' );
 	} );
 
 	it( 'exposes style and advanced section stacks for parity-sensitive widgets', () => {

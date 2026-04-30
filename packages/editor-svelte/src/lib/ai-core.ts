@@ -10,6 +10,7 @@ export interface BuilderAiSettings {
 	headers: Record<string, string>;
 	temperature: number;
 	maxOutputTokens: number;
+	maxToolIterations: number;
 	systemInstructions: string;
 	debugMode: boolean;
 }
@@ -72,6 +73,8 @@ export interface BuilderAiToolExecutionResult {
 	ok: boolean;
 	summary: string;
 	data?: JsonValue;
+	terminal?: boolean;
+	assistantMessage?: string;
 }
 
 export const builderAiProviderPresets: Record<BuilderAiProviderPreset, { label: string; baseUrl: string; model: string }> = {
@@ -98,6 +101,9 @@ export const builderAiProviderPresets: Record<BuilderAiProviderPreset, { label: 
 };
 
 const aiSettingsStorageKey = 'svelte-builder.ai-settings.v1';
+const defaultMaxToolIterations = 6;
+const minMaxToolIterations = 1;
+const maxMaxToolIterations = 20;
 
 export function createDefaultAiSettings( overrides: Partial<BuilderAiSettings> = {} ): BuilderAiSettings {
 	const preset = builderAiProviderPresets[ overrides.provider ?? 'custom' ];
@@ -109,9 +115,18 @@ export function createDefaultAiSettings( overrides: Partial<BuilderAiSettings> =
 		headers: overrides.headers ?? {},
 		temperature: overrides.temperature ?? 0.4,
 		maxOutputTokens: overrides.maxOutputTokens ?? 4096,
+		maxToolIterations: normalizeMaxToolIterations( overrides.maxToolIterations ),
 		systemInstructions: overrides.systemInstructions ?? '',
 		debugMode: overrides.debugMode ?? false,
 	};
+}
+
+export function normalizeMaxToolIterations( value: unknown ): number {
+	const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number( value ) : Number.NaN;
+	if ( !Number.isFinite( numeric ) ) {
+		return defaultMaxToolIterations;
+	}
+	return Math.min( maxMaxToolIterations, Math.max( minMaxToolIterations, Math.trunc( numeric ) ) );
 }
 
 export function createDefaultAiSessionState(): BuilderAiSessionState {

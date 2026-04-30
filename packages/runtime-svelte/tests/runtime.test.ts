@@ -28,8 +28,10 @@ import {
 	resolveNodeProps,
 	resolveTabItems,
 	renderPublishedDocument,
+	createRuntimeComponentMap,
 } from '../src/lib/runtime';
 import { BUILDER_RUNTIME_BASE_STYLES } from '../src/lib/runtime-base-styles';
+import CustomRuntimeCard from './CustomRuntimeCard.svelte';
 
 describe( 'runtime-svelte', () => {
 	it( 'builds a stylesheet from variables and classes', () => {
@@ -109,6 +111,66 @@ describe( 'runtime-svelte', () => {
 		expect( model.bindingContext.siteData ).toEqual( { title: 'Published' } );
 		expect( model.cssIsolation?.rootSelector ).toBe( '#published' );
 		expect( resolveNodeProps( image, model ).src ).toBe( 'https://cdn.example.com/hero.jpg' );
+	} );
+
+	it( 'creates runtime component maps and carries them through render models', () => {
+		const runtimeComponents = createRuntimeComponentMap( {
+			'custom-card': CustomRuntimeCard,
+		} );
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		const project = createBuilderPackage( 'Demo', [ document ] );
+		const model = renderDocument( {
+			project,
+			activeDocumentId: document.id,
+			runtimeComponents,
+		} );
+
+		expect( runtimeComponents.get( 'custom-card' ) ).toBe( CustomRuntimeCard );
+		expect( model.runtimeComponents.get( 'custom-card' ) ).toBe( CustomRuntimeCard );
+	} );
+
+	it( 'resolves props for nodes backed by custom Svelte runtime components', () => {
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		const customNode = createNode( {
+			id: 'custom-card',
+			type: 'custom-card',
+			props: { title: 'Fallback title' },
+			styles: createStyleSet( { base: { color: '#123456' } } ),
+			bindings: [ {
+				id: 'title-binding',
+				targetKind: 'prop',
+				target: 'title',
+				source: 'dynamic',
+				path: 'post-title',
+				category: 'text',
+				args: {},
+			} ],
+			children: [
+				createNode( {
+					id: 'custom-card-child',
+					type: 'paragraph',
+					props: { text: 'Nested child' },
+				} ),
+			],
+		} );
+		document.root = [ customNode ];
+		const project = createBuilderPackage( 'Demo', [ document ] );
+		const runtimeComponents = createRuntimeComponentMap( {
+			'custom-card': CustomRuntimeCard,
+		} );
+		const model = renderDocument( {
+			project,
+			activeDocumentId: document.id,
+			runtimeComponents,
+			bindingContext: {
+				record: { title: 'Resolved title' },
+			},
+		} );
+
+		expect( model.runtimeComponents.get( 'custom-card' ) ).toBe( CustomRuntimeCard );
+		expect( resolveNodeProps( customNode, model ).title ).toBe( 'Resolved title' );
+		expect( getNodeStyle( customNode, model ) ).toContain( 'color: #123456' );
+		expect( customNode.children[ 0 ]?.props.text ).toBe( 'Nested child' );
 	} );
 
 	it( 'resolves host dynamic bindings for props, links, media, and styles', () => {

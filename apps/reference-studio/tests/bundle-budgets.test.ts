@@ -17,9 +17,9 @@ const describeBuiltManifest = existsSync( manifestPath ) ? describe : describe.s
 
 const budgets = {
 	initialRoute: { raw: 24_000, gzip: 8_000 },
-	editor: { raw: 440_000, gzip: 122_000 },
+	editor: { raw: 460_000, gzip: 130_000 },
 	richText: { raw: 430_000, gzip: 145_000 },
-	editorCss: { raw: 137_000, gzip: 22_500 },
+	editorCss: { raw: 138_000, gzip: 22_500 },
 	runtimeCss: { raw: 24_000, gzip: 6_000 },
 } as const;
 

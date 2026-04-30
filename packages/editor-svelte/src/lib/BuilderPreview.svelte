@@ -904,6 +904,7 @@
 				project: state.project,
 				activeDocumentId: state.ui.preview.documentId ?? state.activeDocumentId,
 				registry: editor.registry,
+				runtimeComponents: editor.runtimeComponents,
 				adapter: editor.adapter,
 				bindingContext: {
 					...editor.bindingContext,

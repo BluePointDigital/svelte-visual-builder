@@ -10,6 +10,7 @@ export interface BuilderAiSettings {
 	headers: Record<string, string>;
 	temperature: number;
 	maxOutputTokens: number;
+	maxToolIterations: number;
 	systemInstructions: string;
 	debugMode: boolean;
 }
@@ -83,6 +84,8 @@ export interface BuilderAiToolExecutionResult {
 	ok: boolean;
 	summary: string;
 	data?: JsonValue;
+	terminal?: boolean;
+	assistantMessage?: string;
 }
 
 export interface BuilderAiRunOptions {
@@ -124,6 +127,9 @@ export const builderAiProviderPresets: Record<BuilderAiProviderPreset, { label: 
 };
 
 const aiSettingsStorageKey = 'svelte-builder.ai-settings.v1';
+const defaultMaxToolIterations = 6;
+const minMaxToolIterations = 1;
+const maxMaxToolIterations = 20;
 
 export function createDefaultAiSettings( overrides: Partial<BuilderAiSettings> = {} ): BuilderAiSettings {
 	const preset = builderAiProviderPresets[ overrides.provider ?? 'custom' ];
@@ -135,9 +141,18 @@ export function createDefaultAiSettings( overrides: Partial<BuilderAiSettings> =
 		headers: overrides.headers ?? {},
 		temperature: overrides.temperature ?? 0.4,
 		maxOutputTokens: overrides.maxOutputTokens ?? 4096,
+		maxToolIterations: normalizeMaxToolIterations( overrides.maxToolIterations ),
 		systemInstructions: overrides.systemInstructions ?? '',
 		debugMode: overrides.debugMode ?? false,
 	};
+}
+
+export function normalizeMaxToolIterations( value: unknown ): number {
+	const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number( value ) : Number.NaN;
+	if ( !Number.isFinite( numeric ) ) {
+		return defaultMaxToolIterations;
+	}
+	return Math.min( maxMaxToolIterations, Math.max( minMaxToolIterations, Math.trunc( numeric ) ) );
 }
 
 export function createDefaultAiSessionState(): BuilderAiSessionState {
@@ -280,7 +295,8 @@ export async function runBuilderAiAgent( options: BuilderAiRunOptions ): Promise
 		{ role: 'system', content: options.systemPrompt },
 		{ role: 'user', content: options.userPrompt },
 	];
-	const maxIterations = options.maxIterations ?? 6;
+	const maxIterations = normalizeMaxToolIterations( options.maxIterations ?? options.settings.maxToolIterations );
+	const toolSignatures = new Map<string, BuilderAiToolExecutionResult>();
 
 	for ( let iteration = 0; iteration < maxIterations; iteration += 1 ) {
 		options.signal?.throwIfAborted();
@@ -353,8 +369,40 @@ export async function runBuilderAiAgent( options: BuilderAiRunOptions ): Promise
 			content,
 			tool_calls: orderedToolCalls,
 		} );
+		let hasToolFailure = false;
+		let terminalResult: BuilderAiToolExecutionResult | undefined;
 		for ( const call of orderedToolCalls ) {
 			options.signal?.throwIfAborted();
+			const signature = createToolCallSignature( call );
+			const previousResult = toolSignatures.get( signature );
+			if ( previousResult ) {
+				if ( previousResult.ok && previousResult.terminal ) {
+					const summary = `AI repeated an already applied ${ call.function.name } tool call, so the run was stopped to avoid duplicate changes.`;
+					const repeatedResult: BuilderAiToolExecutionResult = {
+						ok: true,
+						summary,
+						terminal: true,
+						assistantMessage: previousResult.assistantMessage ?? previousResult.summary ?? summary,
+					};
+					options.onToolResult?.( call, repeatedResult );
+					options.onDebugMessage?.( 'AI stopped repeated successful tool call', toDebugPayload( {
+						tool: call.function.name,
+						arguments: parseDebugJson( call.function.arguments ),
+						previousSummary: previousResult.summary,
+					} ) );
+					options.onAssistantMessage?.( repeatedResult.assistantMessage ?? repeatedResult.summary );
+					return;
+				}
+				if ( !previousResult.ok ) {
+					const message = `AI repeated the same failing tool call without changing arguments: ${ call.function.name }. ${ previousResult.summary }`;
+					options.onDebugMessage?.( 'AI stopped repeated failing tool call', toDebugPayload( {
+						tool: call.function.name,
+						arguments: parseDebugJson( call.function.arguments ),
+						previousSummary: previousResult.summary,
+					} ) );
+					throw new Error( message );
+				}
+			}
 			let result: BuilderAiToolExecutionResult;
 			try {
 				result = await options.executeTool( call );
@@ -364,23 +412,78 @@ export async function runBuilderAiAgent( options: BuilderAiRunOptions ): Promise
 					summary: error instanceof Error ? error.message : `Tool ${ call.function.name } failed.`,
 				};
 			}
+			toolSignatures.set( signature, result );
+			hasToolFailure ||= !result.ok;
+			if ( result.ok && result.terminal ) {
+				terminalResult = result;
+			}
 			options.onToolResult?.( call, result );
 			if ( options.settings.debugMode ) {
 				options.onDebugMessage?.( `Builder parsed/applied ${ call.function.name }`, toDebugPayload( {
 					ok: result.ok,
 					summary: result.summary,
 					data: result.data,
+					terminal: result.terminal,
 				} ) );
 			}
 			messages.push( {
 				role: 'tool',
 				tool_call_id: call.id,
-				content: JSON.stringify( result ),
+				content: JSON.stringify( createModelFacingToolResult( result ) ),
 			} );
+		}
+		if ( terminalResult && !hasToolFailure ) {
+			options.onAssistantMessage?.( terminalResult.assistantMessage ?? terminalResult.summary );
+			return;
 		}
 	}
 
 	throw new Error( 'AI reached the maximum tool-iteration limit before finishing.' );
+}
+
+function createModelFacingToolResult( result: BuilderAiToolExecutionResult ): BuilderAiToolExecutionResult & { instruction?: string } {
+	if ( result.ok && result.terminal ) {
+		return {
+			...result,
+			instruction: 'The requested builder change has been applied. Respond concisely and do not call another tool unless more user-requested work remains.',
+		};
+	}
+	if ( !result.ok ) {
+		return {
+			...result,
+			instruction: 'Repair the arguments before retrying. Do not repeat the same call unchanged.',
+		};
+	}
+	return result;
+}
+
+function createToolCallSignature( call: BuilderAiToolCall ): string {
+	return JSON.stringify( {
+		name: call.function.name,
+		arguments: normalizeToolCallArgumentsForSignature( call.function.arguments ),
+	} );
+}
+
+function normalizeToolCallArgumentsForSignature( value: string ): JsonValue {
+	try {
+		return sortJsonValue( JSON.parse( value ) as JsonValue );
+	} catch {
+		return value.trim();
+	}
+}
+
+function sortJsonValue( value: JsonValue ): JsonValue {
+	if ( Array.isArray( value ) ) {
+		return value.map( sortJsonValue );
+	}
+	if ( value && typeof value === 'object' ) {
+		return Object.fromEntries(
+			Object.entries( value )
+				.sort( ( [ left ], [ right ] ) => left.localeCompare( right ) )
+				.map( ( [ key, entry ] ) => [ key, sortJsonValue( entry ) ] ),
+		);
+	}
+	return value;
 }
 
 function toolsForDebug( tools: BuilderAiToolDefinition[] ): JsonValue {
@@ -505,9 +608,10 @@ export function createAiSystemPrompt( extraInstructions = '' ): string {
 		'For new content, use add_section_from_html with complete semantic HTML and CSS. The editor will convert it into valid editable Builder nodes.',
 		'Generated HTML must include useful structure: section/container markup, heading, body copy, CTA or media when appropriate, and visual CSS.',
 		'For edits, prefer semantic tools such as improve_section_visual_style, match_style_from_node, rewrite_text_content, make_section_responsive, apply_brand_palette, convert_selection_to_pricing, convert_selection_to_hero, and add_cta_block.',
-		'Use inspect/search tools before editing when the target is ambiguous. If no target is selected and the request is broad, ask the user to select a target or explicitly allow a whole-page edit.',
+		'Use the provided full page context plus inspect/search tools before editing when the target is ambiguous. If no target is selected and the request is broad, choose the most relevant existing page section from context instead of asking for selection.',
 		'Do not rely on arbitrary raw Builder JSON. Heading levels must be h1, h2, h3, h4, h5, or h6.',
 		'If a tool returns ok:false, repair the arguments and retry instead of repeating the same invalid call.',
+		'When a create or edit mutation tool succeeds, the requested builder change is complete; respond concisely instead of calling more tools unless more user-requested work remains.',
 		extraInstructions,
 	].filter( Boolean ).join( '\n' );
 }

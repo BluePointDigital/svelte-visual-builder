@@ -20,6 +20,7 @@
 		viewport = 'desktop',
 		reducedMotion = false,
 		showPopups = false,
+		runtimeComponents,
 		bridgeEvents = false,
 		bridgeRenderVersion = 0,
 		onGeometrySnapshot,
@@ -44,6 +45,7 @@
 		viewport,
 		reducedMotion,
 		showPopups,
+		runtimeComponents,
 	} ) );
 
 	const renderableRoots = $derived( getRenderableRoots( model ) );

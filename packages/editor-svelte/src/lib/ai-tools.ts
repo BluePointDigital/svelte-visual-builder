@@ -1,6 +1,6 @@
 import type { BuilderEngine, BuilderEngineState, BuilderMutationCommand } from '@builder/core';
 import { getActiveDocument, getNodeById, getNodeLocation, getSelectedNodes } from '@builder/core';
-import type { BuilderNode, ClassDefinition, HtmlAttribute, JsonValue, StyleSet, VariableDefinition } from '@builder/schema';
+import type { BuilderDocument, BuilderNode, ClassDefinition, HtmlAttribute, JsonValue, StyleSet, VariableDefinition } from '@builder/schema';
 import { ClassDefinitionSchema, VariableDefinitionSchema, createNode } from '@builder/schema';
 import type { BuilderRegistry } from '@builder/plugin-api';
 
@@ -9,9 +9,11 @@ import type { BuilderAiToolCall, BuilderAiToolDefinition, BuilderAiToolExecution
 export interface BuilderAiToolExecutorOptions {
 	engine: BuilderEngine;
 	registry: BuilderRegistry;
+	defaultDocumentId?: string;
 	defaultParentId?: string;
 	defaultSlot?: string;
 	mode?: 'create' | 'edit';
+	allowCreateInEdit?: boolean;
 }
 
 export interface BuilderAiToolExecutor {
@@ -21,8 +23,8 @@ export interface BuilderAiToolExecutor {
 
 export function createBuilderAiToolExecutor( options: BuilderAiToolExecutorOptions ): BuilderAiToolExecutor {
 	return {
-		tools: getModelFacingAiTools( options.mode ?? 'edit' ),
-		executeTool: async ( call ) => executeBuilderAiTool( options, call ),
+		tools: getModelFacingAiTools( options.mode ?? 'edit', { allowCreateInEdit: options.allowCreateInEdit } ),
+		executeTool: async ( call ) => markTerminalToolResult( call.function.name, await executeBuilderAiTool( options, call ) ),
 	};
 }
 
@@ -54,8 +56,6 @@ const EDIT_TOOL_NAMES = new Set( [
 	'apply_brand_palette',
 	'convert_selection_to_pricing',
 	'convert_selection_to_hero',
-	'add_cta_block',
-	'add_section_from_html',
 	'replace_selected_with_html',
 	'set_node_text',
 	'set_node_background',
@@ -64,8 +64,13 @@ const EDIT_TOOL_NAMES = new Set( [
 	'set_node_link',
 ] );
 
-export function getModelFacingAiTools( mode: 'create' | 'edit' = 'edit' ): BuilderAiToolDefinition[] {
-	const allowed = mode === 'create' ? CREATE_TOOL_NAMES : EDIT_TOOL_NAMES;
+export function getModelFacingAiTools( mode: 'create' | 'edit' = 'edit', options: { allowCreateInEdit?: boolean } = {} ): BuilderAiToolDefinition[] {
+	const allowed = mode === 'create'
+		? CREATE_TOOL_NAMES
+		: new Set( [
+			...EDIT_TOOL_NAMES,
+			...( options.allowCreateInEdit ? [ 'add_section_from_html' ] : [] ),
+		] );
 	return builderAiTools.filter( ( entry ) => allowed.has( entry.function.name ) );
 }
 
@@ -147,7 +152,10 @@ export const builderAiTools: BuilderAiToolDefinition[] = [
 			nodeId: { type: 'string' },
 			color: { type: [ 'string', 'null' ] },
 			fontSize: { type: [ 'string', 'null' ] },
-			fontWeight: { type: [ 'string', 'number', 'null' ] },
+			fontWeight: {
+				type: [ 'string', 'null' ],
+				description: 'CSS font weight such as "400", "700", "bold", or "normal".',
+			},
 			lineHeight: { type: [ 'string', 'null' ] },
 			textAlign: { type: [ 'string', 'null' ] },
 			documentId: { type: [ 'string', 'null' ] },
@@ -359,11 +367,11 @@ async function executeBuilderAiTool( options: BuilderAiToolExecutorOptions, call
 	const args = parseToolArguments( call.function.arguments );
 	switch ( call.function.name ) {
 		case 'inspect_current_document':
-			return inspectCurrentDocument( options.engine.getState() );
+			return inspectCurrentDocument( options.engine.getState(), options.defaultDocumentId );
 		case 'inspect_selected_node':
-			return inspectSelectedNode( options.engine.getState() );
+			return inspectSelectedNode( options.engine.getState(), options.defaultDocumentId );
 		case 'search_nodes':
-			return searchNodes( options.engine.getState(), readString( args.query, 'query' ) );
+			return searchNodes( options.engine.getState(), readString( args.query, 'query' ), options.defaultDocumentId );
 		case 'list_element_registry':
 			return listElementRegistry( options.registry );
 		case 'list_design_system':
@@ -371,6 +379,9 @@ async function executeBuilderAiTool( options: BuilderAiToolExecutorOptions, call
 		case 'list_documents':
 			return listDocuments( options.engine.getState() );
 		case 'add_section_from_html':
+			if ( options.mode === 'edit' && !options.allowCreateInEdit ) {
+				throw new Error( 'add_section_from_html is only available in Create with AI, or in Edit with AI when the user explicitly asks to add new content to an empty page.' );
+			}
 			return runMutationAsync( options.engine, readString( args.summary, 'summary', 'AI: Add section from HTML' ), () => addSectionFromHtml( options, args ) );
 		case 'replace_selected_with_html':
 			return runMutationAsync( options.engine, readString( args.summary, 'summary', 'AI: Replace selection with HTML' ), () => replaceSelectedWithHtml( options, args ) );
@@ -446,6 +457,17 @@ async function executeBuilderAiTool( options: BuilderAiToolExecutorOptions, call
 	}
 }
 
+function markTerminalToolResult( toolName: string, result: BuilderAiToolExecutionResult ): BuilderAiToolExecutionResult {
+	if ( !result.ok || READ_TOOL_NAMES.has( toolName ) ) {
+		return result;
+	}
+	return {
+		...result,
+		terminal: result.terminal ?? true,
+		assistantMessage: result.assistantMessage ?? result.summary,
+	};
+}
+
 function tool( name: string, description: string, parameters: Record<string, JsonValue> ): BuilderAiToolDefinition {
 	return {
 		type: 'function',
@@ -457,8 +479,8 @@ function tool( name: string, description: string, parameters: Record<string, Jso
 	};
 }
 
-function inspectCurrentDocument( state: BuilderEngineState ): BuilderAiToolExecutionResult {
-	const document = getActiveDocument( state );
+function inspectCurrentDocument( state: BuilderEngineState, defaultDocumentId?: string ): BuilderAiToolExecutionResult {
+	const document = resolveDocument( state, defaultDocumentId );
 	return {
 		ok: true,
 		summary: `Active document ${ document.title } has ${ countNodes( document.root ) } nodes.`,
@@ -469,9 +491,9 @@ function inspectCurrentDocument( state: BuilderEngineState ): BuilderAiToolExecu
 	};
 }
 
-function inspectSelectedNode( state: BuilderEngineState ): BuilderAiToolExecutionResult {
-	const document = getActiveDocument( state );
-	const node = getSelectedNodes( state )[ 0 ];
+function inspectSelectedNode( state: BuilderEngineState, defaultDocumentId?: string ): BuilderAiToolExecutionResult {
+	const document = resolveDocument( state, defaultDocumentId );
+	const node = state.ui.selectedNodeIds[ 0 ] ? getNodeById( document.root, state.ui.selectedNodeIds[ 0 ] ) : getSelectedNodes( state )[ 0 ];
 	return {
 		ok: Boolean( node ),
 		summary: node ? `Selected ${ node.type } ${ node.id }.` : 'No node is selected.',
@@ -479,10 +501,10 @@ function inspectSelectedNode( state: BuilderEngineState ): BuilderAiToolExecutio
 	};
 }
 
-function searchNodes( state: BuilderEngineState, query: string ): BuilderAiToolExecutionResult {
+function searchNodes( state: BuilderEngineState, query: string, defaultDocumentId?: string ): BuilderAiToolExecutionResult {
 	const needle = query.toLowerCase();
 	const matches: Array<{ id: string; type: string; name?: string; props: Record<string, JsonValue> }> = [];
-	for ( const node of flattenNodes( getActiveDocument( state ).root ) ) {
+	for ( const node of flattenNodes( resolveDocument( state, defaultDocumentId ).root ) ) {
 		const haystack = JSON.stringify( {
 			id: node.id,
 			type: node.type,
@@ -562,7 +584,8 @@ function createNodeBatch( options: BuilderAiToolExecutorOptions, args: Record<st
 
 function updateNode( options: BuilderAiToolExecutorOptions, args: Record<string, unknown> ): BuilderAiToolExecutionResult {
 	const state = options.engine.getState();
-	const document = resolveDocument( state, readOptionalString( args.documentId ) );
+	const documentId = readOptionalString( args.documentId ) ?? options.defaultDocumentId;
+	const document = resolveDocument( state, documentId );
 	const node = getNodeById( document.root, readString( args.nodeId, 'nodeId' ) );
 	if ( !node ) {
 		throw new Error( `Node not found: ${ readString( args.nodeId, 'nodeId' ) }.` );
@@ -570,7 +593,7 @@ function updateNode( options: BuilderAiToolExecutorOptions, args: Record<string,
 	validateAiNodePatch( options.registry, node, args );
 	const command: BuilderMutationCommand = {
 		type: 'document/elements/update',
-		documentId: readOptionalString( args.documentId ),
+		documentId,
 		nodeId: readString( args.nodeId, 'nodeId' ),
 		patch: readOptionalRecord( args.patch ) as Partial<BuilderNode> | undefined,
 		propsPatch: readOptionalRecord( args.propsPatch ),
@@ -588,7 +611,7 @@ async function addSectionFromHtml( options: BuilderAiToolExecutorOptions, args: 
 	const parentId = readOptionalString( args.parentId ) ?? options.defaultParentId ?? getPreferredInsertionParentId( options.engine.getState(), options.registry );
 	const slot = readOptionalString( args.slot ) ?? options.defaultSlot;
 	const index = readOptionalNumber( args.index );
-	const documentId = readOptionalString( args.documentId );
+	const documentId = readOptionalString( args.documentId ) ?? options.defaultDocumentId;
 	nodes.forEach( ( node, offset ) => {
 		options.engine.dispatch( {
 			type: 'document/elements/create',
@@ -612,7 +635,7 @@ async function addSectionFromHtml( options: BuilderAiToolExecutorOptions, args: 
 
 async function replaceSelectedWithHtml( options: BuilderAiToolExecutorOptions, args: Record<string, unknown> ): Promise<BuilderAiToolExecutionResult> {
 	const state = options.engine.getState();
-	const documentId = readOptionalString( args.documentId ) ?? state.activeDocumentId;
+	const documentId = readOptionalString( args.documentId ) ?? options.defaultDocumentId ?? state.activeDocumentId;
 	const document = resolveDocument( state, documentId );
 	const nodeId = readOptionalString( args.nodeId ) ?? state.ui.selectedNodeIds[ 0 ];
 	if ( !nodeId ) {
@@ -1235,16 +1258,80 @@ function normalizePropsForElement( type: string, props: Record<string, JsonValue
 
 function resolveSemanticTargetNode( options: BuilderAiToolExecutorOptions, args: Record<string, unknown>, toolName: string ): { document: ReturnType<typeof getActiveDocument>; node: BuilderNode } {
 	const state = options.engine.getState();
-	const document = resolveDocument( state, readOptionalString( args.documentId ) );
+	const document = resolveDocument( state, readOptionalString( args.documentId ) ?? options.defaultDocumentId );
 	const targetNodeId = readOptionalString( args.targetNodeId ) ?? readOptionalString( args.nodeId ) ?? state.ui.selectedNodeIds[ 0 ];
 	if ( !targetNodeId ) {
+		const fallback = resolveSemanticFallbackTarget( state, document, toolName );
+		if ( fallback ) {
+			return fallback;
+		}
 		throw new Error( `${ toolName } needs a selected target node. Select a section/element first or provide targetNodeId.` );
 	}
 	const node = getNodeById( document.root, targetNodeId );
 	if ( !node ) {
+		const projectMatch = findNodeInProject( state, targetNodeId );
+		if ( projectMatch ) {
+			return projectMatch;
+		}
+		const fallback = resolveSemanticFallbackTarget( state, document, toolName );
+		if ( fallback ) {
+			return fallback;
+		}
 		throw new Error( `Target node not found: ${ targetNodeId }.` );
 	}
 	return { document, node };
+}
+
+function findNodeInProject( state: BuilderEngineState, nodeId: string ): { document: BuilderDocument; node: BuilderNode } | undefined {
+	for ( const document of state.project.documents ) {
+		const node = getNodeById( document.root, nodeId );
+		if ( node ) {
+			return { document, node };
+		}
+	}
+	return undefined;
+}
+
+function resolveSemanticFallbackTarget( state: BuilderEngineState, document: BuilderDocument, toolName: string ): { document: BuilderDocument; node: BuilderNode } | undefined {
+	if ( !canFallbackSemanticTool( toolName ) ) {
+		return undefined;
+	}
+	for ( const selectedNodeId of state.ui.selectedNodeIds ) {
+		const selectedMatch = findNodeInProject( state, selectedNodeId );
+		if ( selectedMatch && isBroadStyleTarget( selectedMatch.node ) ) {
+			return selectedMatch;
+		}
+	}
+	const documentTarget = findBestBroadStyleTarget( document );
+	if ( documentTarget ) {
+		return { document, node: documentTarget };
+	}
+	for ( const projectDocument of state.project.documents ) {
+		const projectTarget = findBestBroadStyleTarget( projectDocument );
+		if ( projectTarget ) {
+			return { document: projectDocument, node: projectTarget };
+		}
+	}
+	return undefined;
+}
+
+function canFallbackSemanticTool( toolName: string ): boolean {
+	return toolName === 'improve_section_visual_style'
+		|| toolName === 'apply_brand_palette'
+		|| toolName === 'make_section_responsive';
+}
+
+function findBestBroadStyleTarget( document: BuilderDocument ): BuilderNode | undefined {
+	return document.root.find( isBroadStyleTarget )
+		?? flattenNodes( document.root ).find( isBroadStyleTarget )
+		?? document.root[ 0 ];
+}
+
+function isBroadStyleTarget( node: BuilderNode ): boolean {
+	return node.type === 'container'
+		|| node.type === 'grid-container'
+		|| node.children.length > 0
+		|| Object.values( node.slots as Record<string, BuilderNode[]> ).some( ( nodes ) => nodes.length > 0 );
 }
 
 async function replaceTargetWithHtml(
@@ -1340,7 +1427,7 @@ function readPlans( value: unknown, currency: string ): Array<{ name: string; pr
 
 function resolveToolNode( options: BuilderAiToolExecutorOptions, args: Record<string, unknown> ): { document: ReturnType<typeof getActiveDocument>; node: BuilderNode } {
 	const state = options.engine.getState();
-	const document = resolveDocument( state, readOptionalString( args.documentId ) );
+	const document = resolveDocument( state, readOptionalString( args.documentId ) ?? options.defaultDocumentId );
 	const nodeId = readString( args.nodeId, 'nodeId' );
 	const node = getNodeById( document.root, nodeId );
 	if ( !node ) {

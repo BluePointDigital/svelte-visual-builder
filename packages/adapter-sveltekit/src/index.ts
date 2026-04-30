@@ -2,6 +2,7 @@ import type { Binding, ConditionGroup, JsonValue, ThemeAssignment } from '@build
 import type {
 	BindingProviderContext,
 	BuilderHostAdapter,
+	BuilderHostExtensionDefinition,
 	BuilderHostMediaAdapter,
 	BuilderHostPermissionAdapter,
 	BuilderHostPersistenceAdapter,
@@ -17,6 +18,7 @@ export interface SvelteKitBuilderAdapterOptions {
 export interface SvelteKitBuilderIntegrationOptions {
 	id?: string;
 	label?: string;
+	extension?: BuilderHostExtensionDefinition;
 	persistence?: BuilderHostPersistenceAdapter;
 	media?: BuilderHostMediaAdapter;
 	permissions?: BuilderHostPermissionAdapter;
@@ -30,6 +32,7 @@ export interface SvelteKitBuilderIntegrationOptions {
 }
 
 export interface SvelteKitBuilderIntegration {
+	extension?: BuilderHostExtensionDefinition;
 	adapter: BuilderHostAdapter;
 	editor: {
 		adapter: {
@@ -82,27 +85,33 @@ export function createSvelteKitBuilderAdapter( options: SvelteKitBuilderAdapterO
 }
 
 export function createSvelteKitBuilderIntegration( options: SvelteKitBuilderIntegrationOptions = {} ): SvelteKitBuilderIntegration {
-	const adapter = createSvelteKitBuilderAdapter( {
+	const adapter = options.extension?.adapter ?? createSvelteKitBuilderAdapter( {
 		id: options.id,
 		label: options.label,
 	} );
+	const persistence = options.persistence ?? options.extension?.persistence;
+	const media = options.media ?? options.extension?.media;
+	const permissions = options.permissions ?? options.extension?.permissions;
+	const aiSettings = options.aiSettings ?? options.extension?.aiSettings;
+	const routePreview = options.routePreview ?? options.extension?.routePreview;
 	return {
+		extension: options.extension,
 		adapter,
 		editor: {
 			adapter: {
 				host: adapter,
-				route: options.routePreview,
+				route: routePreview,
 				previewContext: options.previewContext,
 			},
 			persistence: {
-				host: options.persistence,
+				host: persistence,
 			},
 			media: {
-				adapter: options.media,
+				adapter: media,
 			},
-			permissions: options.permissions,
+			permissions,
 			ai: {
-				settings: options.aiSettings,
+				settings: aiSettings,
 				defaultSettings: options.defaultAiSettings,
 			},
 			initialState: {
@@ -112,7 +121,7 @@ export function createSvelteKitBuilderIntegration( options: SvelteKitBuilderInte
 		runtime: {
 			adapter,
 			bindingContext: options.previewContext,
-			media: options.media,
+			media,
 		},
 	};
 }

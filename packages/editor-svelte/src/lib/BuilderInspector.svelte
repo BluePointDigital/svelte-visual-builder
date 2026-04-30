@@ -388,6 +388,7 @@
 			viewport: nextState.ui.viewport,
 			reducedMotion: false,
 			showPopups: nextState.ui.preview.showPopups,
+			runtimeComponents: editor.runtimeComponents ?? new Map(),
 			composition: { activePage: undefined, previewDocument: undefined, previewSlot: undefined, slotDocuments: {}, slotAssignments: {}, assignments: [] },
 			componentsById: new Map(),
 			stylesheet: '',

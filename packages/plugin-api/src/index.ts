@@ -396,7 +396,11 @@ export interface BuilderRoutePreviewContextAdapter {
 export interface BuilderHostExtensionDefinition {
 	adapter?: BuilderHostAdapter;
 	elements?: BuilderElementDefinition[];
+	documentTypes?: BuilderDocumentTypeDefinition[];
+	bindingProviders?: BindingProviderDefinition[];
 	dynamicProviders?: BuilderDynamicProviderDefinition[];
+	templateConditions?: TemplateConditionDefinition[];
+	experiments?: ExperimentDefinition[];
 	persistence?: BuilderHostPersistenceAdapter;
 	media?: BuilderHostMediaAdapter;
 	aiSettings?: BuilderHostAiSettingsAdapter;
@@ -485,12 +489,52 @@ export function createBuilderHostAdapter( definition: BuilderHostAdapter ): Buil
 	return definition;
 }
 
+export function defineBuilderHostExtension<const Definition extends BuilderHostExtensionDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
+export function defineBuilderElement<const Definition extends BuilderElementDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
+export function defineBuilderDocumentType<const Definition extends BuilderDocumentTypeDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
+export function defineBuilderBindingProvider<const Definition extends BindingProviderDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
+export function defineBuilderDynamicProvider<const Definition extends BuilderDynamicProviderDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
+export function defineBuilderTemplateCondition<const Definition extends TemplateConditionDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
+export function defineBuilderExperiment<const Definition extends ExperimentDefinition>( definition: Definition ): Definition {
+	return definition;
+}
+
 export function applyBuilderHostExtension( registry: BuilderRegistry, extension: BuilderHostExtensionDefinition = {} ): BuilderRegistry {
 	for ( const element of extension.elements ?? [] ) {
 		registry.registerElement( element );
 	}
+	for ( const documentType of extension.documentTypes ?? [] ) {
+		registry.registerDocumentType( documentType );
+	}
+	for ( const provider of extension.bindingProviders ?? [] ) {
+		registry.registerBindingProvider( provider );
+	}
 	for ( const provider of extension.dynamicProviders ?? [] ) {
 		registry.registerDynamicProvider( provider );
+	}
+	for ( const condition of extension.templateConditions ?? [] ) {
+		registry.registerTemplateCondition( condition );
+	}
+	for ( const experiment of extension.experiments ?? [] ) {
+		registry.registerExperiment( experiment );
 	}
 	return registry;
 }

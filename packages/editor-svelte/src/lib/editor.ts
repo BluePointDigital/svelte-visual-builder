@@ -18,6 +18,7 @@ import type {
 	BindingProviderContext,
 	BuilderDynamicProviderDefinition,
 	BuilderHostAdapter,
+	BuilderHostExtensionDefinition,
 	BuilderHostMediaAdapter,
 	BuilderHostPermissionAdapter,
 	BuilderHostPermissionKey,
@@ -25,8 +26,10 @@ import type {
 	BuilderHostPersistenceAdapter,
 	BuilderRegistry,
 	BuilderRoutePreviewContextAdapter,
+	TemplateConditionContext,
 } from '@builder/plugin-api';
 import { applyBuilderHostExtension, createDefaultBuilderRegistry } from '@builder/plugin-api';
+import { resolveComposition, type BuilderRuntimeComponentMap } from '@builder/runtime-svelte';
 import {
 	EMPTY_TRANSIENT_DRAG_STATE,
 	areDropTargetsEqual,
@@ -73,12 +76,19 @@ import {
 	type BuilderMediaOptions,
 } from './media';
 
+interface BuilderAiCompositionContext {
+	activeDocument: BuilderDocument;
+	primaryDocument: BuilderDocument;
+	renderedDocuments: Array<{ slot: string; document: BuilderDocument }>;
+}
+
 export interface BuilderEditorController {
 	subscribe: ( listener: ( state: BuilderEngineState ) => void ) => () => void;
 	subscribeSelector: <T>( selector: ( state: BuilderEngineState ) => T, listener: ( slice: T, state: BuilderEngineState ) => void, equals?: ( left: T, right: T ) => boolean, surface?: string ) => () => void;
 	subscribeAiSession: ( listener: ( state: BuilderAiSessionState ) => void ) => () => void;
 	engine: BuilderEngine;
 	registry: BuilderRegistry;
+	runtimeComponents?: BuilderRuntimeComponentMap;
 	features: Readonly<ResolvedBuilderEditorFeatures>;
 	adapter?: BuilderHostAdapter;
 	bindingContext?: BindingProviderContext;
@@ -277,6 +287,8 @@ export interface CreateBuilderEditorOptions {
 	activeDocumentId?: string;
 	/** @deprecated Use adapter.registry. */
 	registry?: BuilderRegistry;
+	extension?: BuilderHostExtensionDefinition;
+	runtimeComponents?: BuilderRuntimeComponentMap;
 	adapter?: BuilderHostAdapter | BuilderEditorAdapterOptions;
 	/** @deprecated Use initialState.bindingContext, adapter.previewContext, or dynamic.previewContext. */
 	bindingContext?: BindingProviderContext;
@@ -359,14 +371,16 @@ const emittedCompatibilityWarnings = new Set<string>();
 
 export function createBuilderEditor( project: BuilderPackage, options: CreateBuilderEditorOptions = {} ): BuilderEditorController {
 	const adapterOptions = resolveEditorAdapterOptions( options.adapter );
+	const extension = options.extension;
 	const activeDocumentId = options.initialState?.activeDocumentId ?? options.activeDocumentId;
-	const hostAdapter = adapterOptions.host;
+	const hostAdapter = adapterOptions.host ?? extension?.adapter;
 	const engine = createBuilderEngine( project, activeDocumentId );
 	const registry = options.registry ?? adapterOptions.registry ?? createDefaultBuilderRegistry();
+	applyBuilderHostExtension( registry, extension );
 	applyBuilderHostExtension( registry, {
 		adapter: hostAdapter,
 		dynamicProviders: options.dynamic?.providers,
-		routePreview: adapterOptions.route,
+		routePreview: adapterOptions.route ?? extension?.routePreview,
 	} );
 	for ( const provider of options.dynamic?.providers ?? [] ) {
 		registry.registerDynamicProvider( provider );
@@ -378,7 +392,9 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 	let dynamicPreviewContext: BindingProviderContext = options.dynamic?.previewContext ?? adapterOptions.previewContext ?? options.initialState?.bindingContext ?? options.bindingContext ?? {};
 	let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 	let persistQueue = Promise.resolve();
-	const persistenceAdapter = resolvePersistenceAdapter( options.persistence );
+	const extensionPersistence = extension?.persistence as BuilderHostPersistenceAdapter<BuilderPackage> | undefined;
+	const persistenceOptions = options.persistence ?? ( extensionPersistence ? { host: extensionPersistence } : undefined );
+	const persistenceAdapter = resolvePersistenceAdapter( persistenceOptions );
 	let persistenceVersionToken = readPersistenceVersionToken( project );
 	let lastPersistEvent: BuilderPersistenceEvent | undefined;
 	let lastConflict: BuilderPersistenceResult | undefined;
@@ -387,10 +403,11 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 	const aiSession = writable<BuilderAiSessionState>( createDefaultAiSessionState() );
 	let aiSessionState = createDefaultAiSessionState();
 	let activeAiAbortController: AbortController | undefined;
-	const aiSettingsAdapter = options.ai?.settings ?? createBrowserAiSettingsAdapter( options.ai?.defaultSettings );
+	const extensionAiSettings = extension?.aiSettings as BuilderAiSettingsAdapter | undefined;
+	const aiSettingsAdapter = options.ai?.settings ?? extensionAiSettings ?? createBrowserAiSettingsAdapter( options.ai?.defaultSettings );
 	const aiEnabled = options.ai?.enabled ?? true;
-	const permissions = Object.freeze( resolveEditorPermissions( options.permissions ) );
-	const mediaOptions = options.media ?? {};
+	const permissions = Object.freeze( resolveEditorPermissions( options.permissions ?? extension?.permissions ) );
+	const mediaOptions = options.media ?? ( extension?.media ? { adapter: extension.media } : {} );
 	const mediaValidationOptions: BuilderMediaOptions = {
 		maxUploadSize: mediaOptions.maxUploadSize,
 		allowedMimeTypes: mediaOptions.allowedMimeTypes,
@@ -528,15 +545,24 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 		} );
 	}
 
-	function buildAiContextPrompt( request?: BuilderAiCreateRequest ) {
+	function buildAiContextPrompt( request?: BuilderAiCreateRequest, mode: BuilderAiSessionState['mode'] = 'edit', prompt = '' ) {
 		const latestState = engine.getState();
-		const activeDocument = getActiveDocument( latestState );
-		const selectedNodes = getSelectedNodes( latestState );
+		const compositionContext = getAiCompositionContext( latestState );
+		const activeDocument = compositionContext.activeDocument;
+		const contextDocument = compositionContext.primaryDocument;
+		const activeDocumentIsEmpty = contextDocument.root.length === 0;
+		const canCreateInEdit = mode === 'edit' && activeDocumentIsEmpty && hasExplicitAiCreateIntent( prompt );
+		const selectedNodes = latestState.ui.selectedNodeIds
+			.map( ( nodeId ) => getNodeLocation( contextDocument.root, nodeId )?.node )
+			.filter( ( node ): node is BuilderNode => Boolean( node ) );
 		const selectedSummaries = selectedNodes.map( ( node ) => summarizeAiContextNode( node ) );
 		const nearbyStructure = selectedNodes[ 0 ]
-			? summarizeNearbyAiStructure( activeDocument, selectedNodes[ 0 ].id )
-			: summarizeRootAiStructure( activeDocument );
-		const semanticTools = [
+			? summarizeNearbyAiStructure( contextDocument, selectedNodes[ 0 ].id )
+			: summarizeRootAiStructure( contextDocument );
+		const fullPageContext = summarizeFullAiPageContext( compositionContext );
+		const semanticTools = mode === 'create' || canCreateInEdit ? [
+			'add_section_from_html',
+		] : [
 			'improve_section_visual_style',
 			'match_style_from_node',
 			'rewrite_text_content',
@@ -544,17 +570,23 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 			'apply_brand_palette',
 			'convert_selection_to_pricing',
 			'convert_selection_to_hero',
-			'add_cta_block',
-			'add_section_from_html',
 			'replace_selected_with_html',
-		].join( ', ' );
+		];
 		return [
 			`Active document: ${ activeDocument.title } (${ activeDocument.kind}, ${ activeDocument.id }).`,
+			`Preview/edit context document: ${ contextDocument.title } (${ contextDocument.kind}, ${ contextDocument.id }). Use this documentId for tool calls unless the user asks for another document.`,
+			compositionContext.renderedDocuments.length ? `Rendered composition documents: ${ compositionContext.renderedDocuments.map( ( entry ) => `${ entry.slot }:${ entry.document.title }(${ entry.document.id })` ).join( ', ' ) }.` : '',
 			`Selected node summary: ${ selectedSummaries.length ? JSON.stringify( selectedSummaries ) : 'none' }.`,
 			`Nearby editable structure: ${ JSON.stringify( nearbyStructure ) }.`,
-			`Use semantic edit tools first: ${ semanticTools }.`,
+			`Full page context: ${ JSON.stringify( fullPageContext ) }.`,
+			mode === 'create'
+				? `Use create tools: ${ semanticTools.join( ', ' ) }.`
+				: `Use semantic edit tools first: ${ semanticTools.join( ', ' ) }.`,
 			'Do not request full project JSON unless the user asks for whole-page analysis or broad page restructuring.',
-			'If an edit target is ambiguous and no node is selected, ask the user to select a target instead of guessing destructively.',
+			'If no node is selected, use the full page context to choose the most relevant existing section or root node for broad page-level edit requests.',
+			canCreateInEdit ? 'The edit context document has no editable nodes and the user explicitly asked to add/create content. Create one complete full-page/hero section with add_section_from_html instead of calling target-required edit tools or adding only a CTA block.' : '',
+			mode === 'edit' && activeDocumentIsEmpty && !canCreateInEdit ? 'The edit context document has no editable nodes and the user did not explicitly ask to add new content. Do not append a section; explain that there is no editable page context to improve and ask the user to select visible content or use Create with AI.' : '',
+			mode === 'edit' && !activeDocumentIsEmpty ? 'Edit with AI must improve or replace existing selected/searched nodes; do not append a new full page section unless the user explicitly asks to add new content.' : '',
 			request?.targetParentId ? `Requested target parent: ${ request.targetParentId }${ request.targetSlot ? ` slot ${ request.targetSlot }` : '' }.` : '',
 			request?.designStyle ? `Requested design style: ${ request.designStyle }.` : '',
 			request?.overwriteThemeSettings ? 'The user allowed theme-setting changes for this create request.' : 'Do not overwrite global theme settings unless necessary.',
@@ -653,16 +685,20 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 			}
 			const { createAiSystemPrompt, runBuilderAiAgent } = await import( './ai' );
 			const { createBuilderAiToolExecutor } = await import( './ai-tools' );
+			const contextDocument = getAiCompositionContext( engine.getState() ).primaryDocument;
+			const allowCreateInEdit = mode === 'edit' && contextDocument.root.length === 0 && hasExplicitAiCreateIntent( prompt );
 			const toolExecutor = createBuilderAiToolExecutor( {
 				engine,
 				registry,
+				defaultDocumentId: contextDocument.id,
 				defaultParentId: request?.targetParentId,
 				defaultSlot: request?.targetSlot,
 				mode: mode === 'create' ? 'create' : 'edit',
+				allowCreateInEdit,
 			} );
 			const systemPrompt = createAiSystemPrompt( [
 				settings.systemInstructions,
-				buildAiContextPrompt( request ),
+				buildAiContextPrompt( request, mode, prompt ),
 			].filter( Boolean ).join( '\n\n' ) );
 			let hadToolFailure = false;
 			let hadSuccessfulTool = false;
@@ -691,6 +727,8 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 						return {
 							ok: true,
 							summary: 'Generated HTML received. The builder will parse it after the model finishes.',
+							terminal: true,
+							assistantMessage: 'Generated HTML received. Parsing it into editable Builder nodes now.',
 							data: { ...preview, deferredParse: true } as JsonValue,
 						};
 					}
@@ -744,6 +782,7 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 					appendAiMessage( makeAiTranscriptMessage( 'system', `${ debugLabel }\n\n${ JSON.stringify( payload, null, 2 ) }`, { toolName: 'debug' } ) );
 				},
 				signal: abortController.signal,
+				maxIterations: settings.maxToolIterations,
 			} );
 			if ( mode === 'create' && !deferredCreateCalls.length && assistantCreateHtml ) {
 				deferredCreateCalls.push( {
@@ -1129,6 +1168,95 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 		} );
 	}
 
+	function getAiCompositionContext( state: BuilderEngineState ): BuilderAiCompositionContext {
+		const activeDocument = getActiveDocument( state );
+		const documentsById = new Map( state.project.documents.map( ( document ) => [ document.id, document ] as const ) );
+		const composition = resolveComposition( {
+			project: state.project,
+			activeDocumentId: state.ui.preview.documentId ?? state.activeDocumentId,
+			previewSlot: state.ui.preview.slot,
+			previewAssignmentId: state.ui.preview.assignmentId,
+			previewSource: state.ui.preview.source,
+			adapter: hostAdapter,
+			conditionContext: getAiTemplateConditionContext( state ),
+		} );
+		const renderedDocuments: Array<{ slot: string; document: BuilderDocument }> = [];
+		for ( const [ slot, documents ] of Object.entries( composition.slotDocuments ) ) {
+			for ( const document of documents ) {
+				const sourceDocument = documentsById.get( document.id ) ?? document;
+				if ( !renderedDocuments.some( ( entry ) => entry.slot === slot && entry.document.id === sourceDocument.id ) ) {
+					renderedDocuments.push( { slot, document: sourceDocument } );
+				}
+			}
+		}
+		if ( !renderedDocuments.some( ( entry ) => entry.document.root.length > 0 ) ) {
+			const assignedPageDocument = findAiAssignedPageDocument( state, documentsById );
+			if ( assignedPageDocument ) {
+				renderedDocuments.push( { slot: 'page-assignment', document: assignedPageDocument } );
+			}
+		}
+		const explicitPreviewDocument = state.ui.preview.documentId ? documentsById.get( state.ui.preview.documentId ) : undefined;
+		const candidates = [
+			...renderedDocuments.map( ( entry ) => entry.document ),
+			explicitPreviewDocument,
+			activeDocument,
+		].filter( ( document ): document is BuilderDocument => Boolean( document ) );
+		const selectedDocument = state.ui.selectedNodeIds[ 0 ]
+			? candidates.find( ( document ) => state.ui.selectedNodeIds.some( ( nodeId ) => Boolean( getNodeLocation( document.root, nodeId ) ) ) )
+			: undefined;
+		const primaryDocument = selectedDocument
+			?? candidates.find( ( document ) => document.root.length > 0 )
+			?? activeDocument;
+		return { activeDocument, primaryDocument, renderedDocuments };
+	}
+
+	function findAiAssignedPageDocument( state: BuilderEngineState, documentsById: Map<string, BuilderDocument> ): BuilderDocument | undefined {
+		const pathname = normalizeAiPathname( state.ui.preview.pathname );
+		return state.project.themeAssignments
+			.filter( ( assignment ) => assignment.slot === 'page' && assignment.status !== 'archived' )
+			.sort( ( left, right ) => right.priority - left.priority )
+			.map( ( assignment ) => ( { assignment, document: documentsById.get( assignment.documentId ) } ) )
+			.find( ( entry ) => {
+				return Boolean( entry.document?.root.length )
+					&& ( !entry.assignment.pathname || aiPathnameMatches( entry.assignment.pathname, pathname ) );
+			} )?.document;
+	}
+
+	function normalizeAiPathname( value?: string ): string {
+		const pathname = value?.trim() || '/';
+		return pathname.startsWith( '/' ) ? pathname : `/${ pathname }`;
+	}
+
+	function aiPathnameMatches( pattern: string, pathname: string ): boolean {
+		const normalizedPattern = normalizeAiPathname( pattern );
+		if ( normalizedPattern === pathname ) {
+			return true;
+		}
+		const escaped = normalizedPattern
+			.replaceAll( /[.+^${}()|[\]\\]/g, '\\$&' )
+			.replaceAll( /\*/g, '.*' )
+			.replaceAll( /\[\.{3}[^\]]+\]/g, '.*' )
+			.replaceAll( /\[[^\]]+\]/g, '[^/]+' );
+		return new RegExp( `^${ escaped }$` ).test( pathname );
+	}
+
+	function getAiTemplateConditionContext( state: BuilderEngineState ): TemplateConditionContext {
+		return {
+			pathname: state.ui.preview.pathname || '/',
+			query: new URLSearchParams( state.ui.preview.query ?? '' ),
+			data: dynamicPreviewContext.loadData,
+			siteData: dynamicPreviewContext.siteData,
+			request: dynamicPreviewContext.request,
+			session: dynamicPreviewContext.session,
+			record: dynamicPreviewContext.record,
+			document: dynamicPreviewContext.document,
+		};
+	}
+
+	function hasExplicitAiCreateIntent( prompt: string ): boolean {
+		return /\b(add|append|insert|create|generate|build|make\s+(?:a|an|new)|new\s+(?:section|block|page|hero|cta|area|part))\b/i.test( prompt );
+	}
+
 	function summarizeAiContextNode( node: BuilderNode ): JsonValue {
 		const slotNodes = node.slots as Record<string, BuilderNode[]>;
 		return {
@@ -1186,6 +1314,89 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 			} ) ),
 			totalRootNodes: document.root.length,
 		} as JsonValue;
+	}
+
+	function summarizeFullAiPageContext( context: BuilderAiCompositionContext ): JsonValue {
+		let includedNodes = 0;
+		const maxNodes = 80;
+		const maxDepth = 5;
+		const summarizeNode = ( node: BuilderNode, depth: number ): JsonValue | undefined => {
+			if ( includedNodes >= maxNodes ) {
+				return undefined;
+			}
+			includedNodes += 1;
+			const slotNodes = Object.entries( node.slots as Record<string, BuilderNode[]> )
+				.flatMap( ( [ slotName, nodes ] ) => nodes.slice( 0, 6 ).map( ( child: BuilderNode ) => ( { slotName, child } ) ) );
+			const childSummaries: JsonValue[] = [];
+			if ( depth < maxDepth ) {
+				for ( const child of node.children.slice( 0, 12 ) ) {
+					const summary = summarizeNode( child, depth + 1 );
+					if ( summary ) {
+						childSummaries.push( summary );
+					}
+				}
+			}
+			const slotSummaries: Record<string, JsonValue[]> = {};
+			if ( depth < maxDepth ) {
+				for ( const entry of slotNodes ) {
+					const summary = summarizeNode( entry.child, depth + 1 );
+					if ( summary ) {
+						slotSummaries[ entry.slotName ] = [ ...( slotSummaries[ entry.slotName ] ?? [] ), summary ];
+					}
+				}
+			}
+			const baseStyles = node.styles?.base ?? {};
+			return {
+				id: node.id,
+				type: node.type,
+				name: node.name,
+				text: getAiNodeTextPreview( node ),
+				props: summarizeAiProps( node.props ),
+				layout: node.layout,
+				styleHints: Object.fromEntries( [
+					'display',
+					'flexDirection',
+					'gridTemplateColumns',
+					'gap',
+					'padding',
+					'margin',
+					'background',
+					'backgroundColor',
+					'color',
+					'fontSize',
+					'fontWeight',
+					'textAlign',
+				].map( ( key ) => [ key, baseStyles[ key ] ] ).filter( ( [ , value ] ) => value !== undefined ) ),
+				attributes: node.attributes.slice( 0, 5 ).map( ( attribute: BuilderNode['attributes'][ number ] ) => ( { name: attribute.name, value: attribute.value } ) ),
+				children: childSummaries,
+				slots: Object.keys( slotSummaries ).length ? slotSummaries : undefined,
+				truncatedChildren: node.children.length > 12 ? node.children.length - 12 : undefined,
+			} as JsonValue;
+		};
+		const documents = context.renderedDocuments.length
+			? context.renderedDocuments
+			: [ { slot: 'active', document: context.primaryDocument } ];
+		return {
+			activeDocumentId: context.activeDocument.id,
+			primaryDocumentId: context.primaryDocument.id,
+			renderedDocuments: documents.map( ( entry ) => ( {
+				slot: entry.slot,
+				documentId: entry.document.id,
+				title: entry.document.title,
+				kind: entry.document.kind,
+				totalNodes: countBuilderNodesForAi( entry.document.root ),
+				root: entry.document.root.map( ( node ) => summarizeNode( node, 0 ) ).filter( ( node ): node is JsonValue => Boolean( node ) ),
+			} ) ),
+			truncated: includedNodes >= maxNodes,
+		} as JsonValue;
+	}
+
+	function countBuilderNodesForAi( nodes: BuilderNode[] ): number {
+		return nodes.reduce( ( total, node ) => {
+			const slotCount = Object.values( node.slots as Record<string, BuilderNode[]> )
+				.reduce( ( slotTotal, slotNodes ) => slotTotal + countBuilderNodesForAi( slotNodes ), 0 );
+			return total + 1 + countBuilderNodesForAi( node.children ) + slotCount;
+		}, 0 );
 	}
 
 	function getAiNodeTextPreview( node: BuilderNode ): string | undefined {
@@ -1263,6 +1474,7 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 		subscribeAiSession: aiSession.subscribe,
 		engine,
 		registry,
+		runtimeComponents: options.runtimeComponents,
 		features,
 		adapter: hostAdapter,
 		bindingContext: dynamicPreviewContext,

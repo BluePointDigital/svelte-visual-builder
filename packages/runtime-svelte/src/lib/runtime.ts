@@ -18,6 +18,7 @@ import type {
 	BuilderRegistry,
 	TemplateConditionContext,
 } from '@builder/plugin-api';
+import type { Component, Snippet } from 'svelte';
 import { createDefaultBuilderRegistry } from '@builder/plugin-api';
 import { createStyleSet } from '@builder/schema';
 import { BUILDER_RUNTIME_BASE_STYLES } from './runtime-base-styles';
@@ -38,6 +39,7 @@ export interface BuilderRuntimeOptions {
 	showPopups?: boolean;
 	media?: BuilderRuntimeMediaAdapter;
 	cssIsolation?: BuilderRuntimeCssIsolationOptions;
+	runtimeComponents?: BuilderRuntimeComponentMap;
 }
 
 export interface BuilderRuntimeMediaAdapter {
@@ -53,6 +55,21 @@ export interface BuilderRuntimeMediaResolveContext {
 export interface BuilderRuntimeCssIsolationOptions {
 	rootSelector?: string;
 }
+
+export type BuilderRuntimeComponent = Component<BuilderRuntimeComponentProps>;
+
+export interface BuilderRuntimeComponentProps {
+	node: BuilderNode;
+	props: Record<string, JsonValue>;
+	attributes: Record<string, string>;
+	style: string;
+	className: string;
+	model: BuilderRenderModel;
+	record?: Record<string, unknown>;
+	children?: Snippet;
+}
+
+export type BuilderRuntimeComponentMap = ReadonlyMap<string, BuilderRuntimeComponent>;
 
 export interface BuilderRuntimeEmbeddingOptions extends Omit<BuilderRuntimeOptions, 'bindingContext' | 'activeDocumentId'> {
 	documentId?: string;
@@ -81,6 +98,7 @@ export interface BuilderRenderModel {
 	showPopups: boolean;
 	media?: BuilderRuntimeMediaAdapter;
 	cssIsolation?: BuilderRuntimeCssIsolationOptions;
+	runtimeComponents: BuilderRuntimeComponentMap;
 	composition: BuilderComposition;
 	componentsById: Map<string, BuilderDocument>;
 	stylesheet: string;
@@ -172,6 +190,13 @@ const EXCLUSIVE_SLOTS: ExclusiveSlot[] = [ 'page', 'header', 'footer', 'sidebar'
 const OVERLAY_SLOTS: OverlaySlot[] = [ 'popup', 'modal' ];
 const componentsByProject = new WeakMap<BuilderPackage, Map<string, BuilderDocument>>();
 const stylesheetByDesignSystem = new WeakMap<DesignSystem, string>();
+const emptyRuntimeComponentMap: BuilderRuntimeComponentMap = new Map();
+
+export function createRuntimeComponentMap<const Components extends Record<string, BuilderRuntimeComponent>>(
+	components: Components,
+): ReadonlyMap<keyof Components & string, Components[keyof Components & string]> {
+	return new Map( Object.entries( components ) ) as unknown as ReadonlyMap<keyof Components & string, Components[keyof Components & string]>;
+}
 
 export function renderDocument( options: BuilderRuntimeOptions ): BuilderRenderModel {
 	return renderResolvedDocument( options );
@@ -192,6 +217,7 @@ export function renderResolvedDocument( options: BuilderRuntimeOptions ): Builde
 	const viewport = options.viewport ?? 'desktop';
 	const reducedMotion = options.reducedMotion ?? false;
 	const showPopups = options.showPopups ?? false;
+	const runtimeComponents = options.runtimeComponents ?? emptyRuntimeComponentMap;
 	const componentsById = getComponentsById( options.project );
 	const composition = resolveComposition( {
 		project: options.project,
@@ -214,6 +240,7 @@ export function renderResolvedDocument( options: BuilderRuntimeOptions ): Builde
 		showPopups,
 		media: options.media,
 		cssIsolation: options.cssIsolation,
+		runtimeComponents,
 		composition,
 		componentsById,
 		stylesheet: compileDocumentAssets( {
@@ -225,6 +252,9 @@ export function renderResolvedDocument( options: BuilderRuntimeOptions ): Builde
 			viewport,
 			reducedMotion,
 			showPopups,
+			media: options.media,
+			cssIsolation: options.cssIsolation,
+			runtimeComponents,
 			composition,
 			componentsById,
 			stylesheet: '',

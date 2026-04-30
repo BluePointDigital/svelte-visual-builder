@@ -76,6 +76,7 @@
 	const nodeStyle = $derived( getNodeStyle( node, model, record ) );
 	const nodeClasses = $derived( getNodeClassNames( node, model ) );
 	const visible = $derived( isNodeVisible( node, model, record ) );
+	const customRuntimeComponent = $derived( model.runtimeComponents.get( node.type ) );
 	const slotDefinitions = $derived( definition?.runtime.slots ?? [] );
 	const slotIds = $derived( slotDefinitions.map( ( entry ) => entry.id ) );
 	const acceptsChildren = $derived( ( definition?.runtime.acceptsChildren ?? false ) || node.children.length > 0 || slotIds.length > 0 );
@@ -122,6 +123,9 @@
 		slotIds,
 		editable: inlineEditable,
 	} satisfies BuilderGeometryNodeMeta );
+	const customRuntimeAttributes = $derived( getAttributeBag() );
+	const customRuntimeClassName = $derived( customRuntimeAttributes.class ?? '' );
+	const customRuntimeStyle = $derived( customRuntimeAttributes.style ?? nodeStyle );
 
 	let activeTabIndex = $state( 0 );
 	let openAccordionIndexes = $state<number[]>( [] );
@@ -278,6 +282,10 @@
 		const candidate = renderPlainText( value );
 		return [ 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ].includes( candidate ) ? candidate : 'h2';
 	}
+
+	function getChildNodes() {
+		return node.children;
+	}
 </script>
 
 {#if visible}
@@ -303,6 +311,70 @@
 					/>
 				{/each}
 			</div>
+		</div>
+	{:else if customRuntimeComponent}
+		{@const RuntimeComponent = customRuntimeComponent}
+		<div
+			{...customRuntimeAttributes}
+			use:bindNodeGeometry={nodeGeometry}
+			onclick={handleSelect}
+			onpointerenter={handleHoverEnter}
+			onpointerleave={handleHoverLeave}
+		>
+			<RuntimeComponent
+				{node}
+				props={resolvedProps}
+				attributes={customRuntimeAttributes}
+				style={customRuntimeStyle}
+				className={customRuntimeClassName}
+				{model}
+				{record}
+			>
+				{#each getChildNodes() as child, childIndex (child.id)}
+					<BuilderNodeView
+						node={child}
+						{model}
+						documentId={documentId}
+						parentId={node.id}
+						index={childIndex}
+						rootSlot={rootSlot}
+						bridgeEvents={bridgeEvents}
+						record={record}
+					/>
+				{/each}
+
+				{#each slotDefinitions as slotDefinition (slotDefinition.id)}
+					<div
+						class="builder-node__slot"
+						data-builder-slot-owner={node.id}
+						data-builder-slot={slotDefinition.id}
+						data-builder-document={documentId}
+						data-builder-multiple={String( slotDefinition.multiple ?? true )}
+						use:bindSlotGeometry={createSlotGeometryMeta( slotDefinition.id, slotDefinition.multiple ?? true, ( node.slots[ slotDefinition.id ] ?? [] ).map( ( child ) => child.id ) )}
+					>
+						{#if ( node.slots[ slotDefinition.id ] ?? [] ).length}
+							{#each node.slots[ slotDefinition.id ] ?? [] as slotNode, slotIndex (slotNode.id)}
+								<BuilderNodeView
+									node={slotNode}
+									{model}
+									documentId={documentId}
+									parentId={node.id}
+									slot={slotDefinition.id}
+									index={slotIndex}
+									rootSlot={rootSlot}
+									bridgeEvents={bridgeEvents}
+									record={record}
+								/>
+							{/each}
+						{:else}
+							<div class="builder-empty-view builder-empty-view--slot" aria-hidden="true">
+								<span class="builder-empty-view__label">+ Drop Items</span>
+								<span class="builder-empty-view__context">Drop into {slotDefinition.label}</span>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</RuntimeComponent>
 		</div>
 	{:else if node.type === 'heading'}
 		<svelte:element

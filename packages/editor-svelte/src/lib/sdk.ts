@@ -4,6 +4,7 @@ import type {
 	BuilderDynamicProviderDefinition,
 	BuilderElementDefinition,
 	BuilderHostAdapter,
+	BuilderHostExtensionDefinition,
 	BuilderHostMediaAdapter,
 	BuilderHostPermissionAdapter,
 	BuilderHostPersistenceAdapter,
@@ -11,10 +12,12 @@ import type {
 	BuilderRoutePreviewContextAdapter,
 } from '@builder/plugin-api';
 import { applyBuilderHostExtension, createDefaultBuilderRegistry } from '@builder/plugin-api';
+import type { BuilderRuntimeComponentMap } from '@builder/runtime-svelte';
 import type { BuilderAiSettings, BuilderAiSettingsAdapter } from './ai-core';
 import { createBuilderEditor, type BuilderEditorController, type BuilderEditorFeatures, type BuilderEditorLifecycleHooks, type CreateBuilderEditorOptions } from './editor';
 
 export interface BuilderHostSdkDefinition {
+	extension?: BuilderHostExtensionDefinition;
 	adapter?: BuilderHostAdapter;
 	registry?: BuilderRegistry;
 	elements?: BuilderElementDefinition[];
@@ -25,6 +28,7 @@ export interface BuilderHostSdkDefinition {
 	aiSettings?: BuilderAiSettingsAdapter;
 	routePreview?: BuilderRoutePreviewContextAdapter;
 	previewContext?: BindingProviderContext;
+	runtimeComponents?: BuilderRuntimeComponentMap;
 	features?: BuilderEditorFeatures;
 	defaultAiSettings?: Partial<BuilderAiSettings>;
 	hooks?: BuilderEditorLifecycleHooks;
@@ -37,39 +41,50 @@ export interface BuilderHostSdk {
 }
 
 export function createBuilderHostSdk( definition: BuilderHostSdkDefinition = {} ): BuilderHostSdk {
-	const registry = applyBuilderHostExtension( definition.registry ?? createDefaultBuilderRegistry(), {
-		adapter: definition.adapter,
+	const extension = definition.extension;
+	const adapter = definition.adapter ?? extension?.adapter;
+	const dynamicProviders = definition.dynamicProviders ?? extension?.dynamicProviders;
+	const persistence = definition.persistence ?? extension?.persistence as BuilderHostPersistenceAdapter<BuilderPackage> | undefined;
+	const media = definition.media ?? extension?.media;
+	const permissions = definition.permissions ?? extension?.permissions;
+	const aiSettings = definition.aiSettings ?? extension?.aiSettings as BuilderAiSettingsAdapter | undefined;
+	const routePreview = definition.routePreview ?? extension?.routePreview;
+	const registry = applyBuilderHostExtension( definition.registry ?? createDefaultBuilderRegistry(), extension );
+	applyBuilderHostExtension( registry, {
+		adapter,
 		elements: definition.elements,
-		dynamicProviders: definition.dynamicProviders,
-		routePreview: definition.routePreview,
+		dynamicProviders,
+		routePreview,
 	} );
 
 	const createEditorOptions = ( overrides: CreateBuilderEditorOptions = {} ): CreateBuilderEditorOptions => ( {
 		...overrides,
+		extension,
+		runtimeComponents: overrides.runtimeComponents ?? definition.runtimeComponents,
 		adapter: {
-			host: definition.adapter,
+			host: adapter,
 			registry,
-			route: definition.routePreview,
+			route: routePreview,
 			previewContext: definition.previewContext,
 			...( typeof overrides.adapter === 'object' && overrides.adapter && !('resolveBinding' in overrides.adapter) ? overrides.adapter : {} ),
 		},
 		registry: overrides.registry ?? registry,
 		dynamic: {
-			providers: definition.dynamicProviders,
+			providers: dynamicProviders,
 			previewContext: definition.previewContext,
 			...overrides.dynamic,
 		},
 		persistence: {
-			host: definition.persistence,
+			host: persistence,
 			...overrides.persistence,
 		},
 		media: {
-			adapter: definition.media,
+			adapter: media,
 			...overrides.media,
 		},
-		permissions: overrides.permissions ?? definition.permissions,
+		permissions: overrides.permissions ?? permissions,
 		ai: {
-			settings: definition.aiSettings,
+			settings: aiSettings,
 			defaultSettings: definition.defaultAiSettings,
 			...overrides.ai,
 		},
