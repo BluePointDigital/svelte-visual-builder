@@ -1,6 +1,6 @@
 # Svelte Visual Builder
 
-Version 0.2.6
+Version 0.2.7
 
 A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svelte applications. It provides an Elementor-style editing experience while keeping persistence, media storage, auth, dynamic data, and AI provider settings owned by the host app.
 
@@ -18,6 +18,13 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
 ## Latest Changes
+
+### Version 0.2.7 - 2026-04-30
+
+- Expanded host SDK, plugin API, and adapter contracts for richer runtime/editor integration points.
+- Improved AI editing flows and tool coverage, with broader tests around AI creation and editing behavior.
+- Added runtime component forwarding coverage so custom Svelte runtime components receive builder attributes, class names, styles, props, and children consistently.
+- Updated reference studio bundle budgets for the current deferred editor and CSS output.
 
 ### Version 0.2.6 - 2026-04-30
 

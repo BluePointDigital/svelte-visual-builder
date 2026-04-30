@@ -14,6 +14,18 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 
 - No unreleased changes documented yet.
 
+## [0.2.7] - 2026-04-30
+
+### Added
+
+- Expanded host SDK, plugin API, adapter, and runtime integration coverage for custom editor/runtime extension points.
+- Added runtime component forwarding support and tests for builder attributes, class names, styles, props, and children in custom Svelte runtime components.
+- Broadened AI creation and editing test coverage around the editor AI tool surface.
+
+### Changed
+
+- Updated reference studio bundle budgets to match the current deferred editor JavaScript and editor CSS output.
+
 ## [0.2.6] - 2026-04-30
 
 ### Fixed
