@@ -1011,7 +1011,9 @@ function applyUiCommand( state: BuilderEngineState, command: Exclude<BuilderUiCo
 				...state,
 				ui: {
 					...state.ui,
-					panel: resolvePanelForShellPage( command.page, state.ui.panel ),
+					panel: command.page === 'globals'
+						? resolveGlobalsPanelFromManagers( state.ui.managers, state.ui.panel )
+						: resolvePanelForShellPage( command.page, state.ui.panel ),
 					shell: {
 						...state.ui.shell,
 						leftPanelPage: command.page,
@@ -2211,6 +2213,19 @@ function resolvePanelForShellPage( page: BuilderShellPage, currentPanel: Builder
 		default:
 			return currentPanel;
 	}
+}
+
+function resolveGlobalsPanelFromManagers( managers: BuilderUiState['managers'], currentPanel: BuilderPanel ): BuilderPanel {
+	if ( managers.libraryManagerOpen ) {
+		return 'library';
+	}
+	if ( managers.componentManagerOpen ) {
+		return 'components';
+	}
+	if ( currentPanel === 'components' || currentPanel === 'library' ) {
+		return currentPanel;
+	}
+	return 'design-system';
 }
 
 function resolveSelectionEditorSurface(

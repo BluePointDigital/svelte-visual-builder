@@ -21,10 +21,25 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 - Expanded host SDK, plugin API, adapter, and runtime integration coverage for custom editor/runtime extension points.
 - Added runtime component forwarding support and tests for builder attributes, class names, styles, props, and children in custom Svelte runtime components.
 - Broadened AI creation and editing test coverage around the editor AI tool surface.
+- Added Template Library export actions for saved library items.
+- Added full-page template saving from the Template Library, separate from selection-based reusable snippets.
 
 ### Changed
 
 - Updated reference studio bundle budgets to match the current deferred editor JavaScript and editor CSS output.
+- Improved Globals panel routing so Classes, Variables, Components, and Library render their own management views consistently.
+
+### Fixed
+
+- Fixed Globals tab state drift where the Library tab could appear selected while Classes rendered underneath.
+- Fixed canvas node selection after template import so the left editor panel returns to Content/Style/Advanced editing instead of staying stuck on the Globals Library body.
+- Fixed Variables tab refresh behavior after switching between shell sections.
+- Fixed unreadable native select dropdown options in dark inspector controls.
+- Fixed the top-right responsive selector so tablet/mobile editing modes can reopen the responsive controls and return to desktop mode.
+
+### Tests
+
+- Added editor regression coverage for full-page template saving, Globals tab restoration, and returning from Globals Library to canvas node editing.
 
 ## [0.2.6] - 2026-04-30
 

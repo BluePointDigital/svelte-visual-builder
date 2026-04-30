@@ -821,9 +821,9 @@
 	}
 
 	function getActiveGlobalTab(): 'classes' | 'variables' | 'components' | 'library' {
-		if ( state.ui.managers.variableManagerOpen ) return 'variables';
 		if ( state.ui.panel === 'components' || state.ui.managers.componentManagerOpen ) return 'components';
 		if ( state.ui.panel === 'library' || state.ui.managers.libraryManagerOpen ) return 'library';
+		if ( state.ui.panel === 'design-system' && state.ui.managers.variableManagerOpen ) return 'variables';
 		return 'classes';
 	}
 
@@ -1462,7 +1462,7 @@
 			</div>
 
 			<div class="builder-shell__appbar-right">
-				<button type="button" class="builder-shell-icon-button builder-shell-button--dark" aria-label="Responsive" title="Responsive" data-inline-edit-preserve-focus="true" onclick={() => editor.toggleResponsiveBar( state.ui.viewport === 'desktop' )}>
+				<button type="button" class="builder-shell-icon-button builder-shell-button--dark" aria-label="Responsive" title="Responsive" data-inline-edit-preserve-focus="true" onclick={() => editor.toggleResponsiveBar( !state.ui.shell.responsiveBarVisible )}>
 					<EditorShellIcon name="responsive" title="Responsive" />
 				</button>
 				<button type="button" class="builder-shell-icon-button builder-shell-button--dark" aria-label={shellLayout.navigator.open ? 'Hide Structure' : 'Show Structure'} title={shellLayout.navigator.open ? 'Hide Structure' : 'Show Structure'} onclick={() => editor.toggleNavigator()}>

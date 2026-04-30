@@ -118,11 +118,28 @@ describe( 'editor-svelte', () => {
 		editor.dispatch( { type: 'document/ui/select-node', nodeId: 'hero' } );
 
 		const libraryItemId = editor.createLibraryItemFromSelection( 'Saved Hero' );
+		const pageTemplateId = editor.createLibraryItemFromPage( 'Saved Page' );
 		editor.dispatch( { type: 'document/ui/select-node', nodeId: 'root-container' } );
 		editor.insertComponentInstance( component.id );
 		editor.insertLibraryItem( libraryItemId );
 
-		expect( editor.engine.getState().project.documents.some( ( entry ) => entry.id === libraryItemId && entry.kind === 'library-item' ) ).toBe( true );
+		const state = editor.engine.getState();
+		const pageTemplate = state.project.documents.find( ( entry ) => entry.id === pageTemplateId );
+
+		expect( state.project.documents.some( ( entry ) => entry.id === libraryItemId && entry.kind === 'library-item' ) ).toBe( true );
+		expect( pageTemplate ).toMatchObject( {
+			kind: 'library-item',
+			title: 'Saved Page',
+			meta: {
+				sourceDocumentId: document.id,
+				sourceDocumentTitle: 'Home',
+				sourceDocumentKind: 'page',
+				selectionBased: false,
+				fullPageTemplate: true,
+			},
+		} );
+		expect( pageTemplate?.root ).toHaveLength( 1 );
+		expect( pageTemplate?.root[ 0 ].id ).not.toBe( document.root[ 0 ].id );
 		expect( editor.engine.getState().project.documents[ 0 ].root[ 0 ].children.some( ( node ) => node.type === 'component-instance' ) ).toBe( true );
 		expect( editor.engine.getState().project.documents[ 0 ].root[ 0 ].children ).toHaveLength( 3 );
 	} );
@@ -222,6 +239,41 @@ describe( 'editor-svelte', () => {
 
 		editor.relinkComponentInstance();
 		expect( editor.engine.getState().project.documents[ 0 ].root[ 0 ].type ).toBe( 'component-instance' );
+	} );
+
+	it( 'restores the active globals tab when reopening the globals shell page', () => {
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ) );
+
+		editor.setShellPage( 'globals' );
+		editor.setPanel( 'library' );
+		editor.dispatch( { type: 'document/ui/toggle-manager', manager: 'libraryManagerOpen', open: true } );
+		editor.setPanel( 'content' );
+
+		expect( editor.engine.getState().ui.shell.leftPanelPage ).toBe( 'editor' );
+		expect( editor.engine.getState().ui.panel ).toBe( 'content' );
+
+		editor.setShellPage( 'globals' );
+
+		expect( editor.engine.getState().ui.shell.leftPanelPage ).toBe( 'globals' );
+		expect( editor.engine.getState().ui.panel ).toBe( 'library' );
+		expect( editor.engine.getState().ui.managers.libraryManagerOpen ).toBe( true );
+	} );
+
+	it( 'returns to node editing when selecting the canvas from the globals library', () => {
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		document.root = [ createNode( { id: 'root', type: 'container' } ) ];
+		const editor = createBuilderEditor( createBuilderPackage( 'Demo', [ document ] ) );
+
+		editor.setShellPage( 'globals' );
+		editor.setPanel( 'library' );
+		editor.dispatch( { type: 'document/ui/toggle-manager', manager: 'libraryManagerOpen', open: true } );
+		editor.dispatch( { type: 'document/ui/select-node', nodeId: 'root' } );
+
+		expect( editor.engine.getState().ui.shell.leftPanelPage ).toBe( 'editor' );
+		expect( editor.engine.getState().ui.panel ).toBe( 'content' );
+		expect( editor.engine.getState().ui.selectedNodeIds ).toEqual( [ 'root' ] );
+		expect( editor.engine.getState().ui.managers.libraryManagerOpen ).toBe( true );
 	} );
 
 	it( 'auto-switches the shell back to the editor surface when selecting a node from non-editor pages', () => {

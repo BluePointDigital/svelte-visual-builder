@@ -24,6 +24,11 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Expanded host SDK, plugin API, and adapter contracts for richer runtime/editor integration points.
 - Improved AI editing flows and tool coverage, with broader tests around AI creation and editing behavior.
 - Added runtime component forwarding coverage so custom Svelte runtime components receive builder attributes, class names, styles, props, and children consistently.
+- Added Template Library export actions for saved library items.
+- Added Template Library support for saving the full current page as a reusable page template, separate from saving only the current selection.
+- Improved Globals panel routing for Classes, Variables, Components, and Library so the highlighted tab and rendered management view stay in sync.
+- Fixed canvas selection after template import so clicking a node returns the left panel to editing controls instead of leaving the Library view stuck open.
+- Fixed the top-right responsive selector so tablet/mobile editing can reopen the responsive controls and return to desktop mode.
 - Updated reference studio bundle budgets for the current deferred editor and CSS output.
 
 ### Version 0.2.6 - 2026-04-30
@@ -156,6 +161,10 @@ The host app owns:
 See [docs/builder-documentation.md](docs/builder-documentation.md) for the full end-to-end documentation and [docs/sdk-embedding.md](docs/sdk-embedding.md) for the focused embedding guide.
 
 ## Import Features
+
+### Template Library
+
+The Globals Library can import native Builder JSON and Elementor JSON templates, save the current selection as a reusable snippet, save the entire active page as a page template, export saved library items as `.builder.json`, and insert saved items back into the active page.
 
 ### Elementor JSON
 

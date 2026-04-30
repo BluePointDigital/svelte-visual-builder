@@ -7,6 +7,7 @@
 		Binding,
 		BuilderDocument,
 		BuilderNode,
+		BuilderPackage,
 		ClassDefinition,
 		ComponentExposure,
 		ComponentWorkflow,
@@ -51,6 +52,7 @@
 		conditionGroupOperators,
 		conditionOperators,
 		conditionSources,
+		BuilderPackageSchema,
 		createThemeAssignment,
 		getDocumentComponentWorkflow,
 		patchDocumentComponentWorkflow,
@@ -90,6 +92,7 @@
 	let selectedVariableDescription = '';
 	let selectedVariableSource: VariableDefinition['source'] = 'manual';
 	let newLibraryTitle = 'Reusable Library Item';
+	let newPageTemplateTitle = 'Page Template';
 	let libraryImportInput: HTMLInputElement | undefined;
 	let libraryImportStatus: 'idle' | 'importing' | 'success' | 'error' = 'idle';
 	let libraryImportMessage = '';
@@ -270,6 +273,11 @@
 		return left.project === right.project
 			&& left.activeDocumentId === right.activeDocumentId
 			&& left.ui.panel === right.ui.panel
+			&& left.ui.shell.leftPanelPage === right.ui.shell.leftPanelPage
+			&& left.ui.managers.classManagerOpen === right.ui.managers.classManagerOpen
+			&& left.ui.managers.variableManagerOpen === right.ui.managers.variableManagerOpen
+			&& left.ui.managers.componentManagerOpen === right.ui.managers.componentManagerOpen
+			&& left.ui.managers.libraryManagerOpen === right.ui.managers.libraryManagerOpen
 			&& left.ui.selectedNodeIds[ 0 ] === right.ui.selectedNodeIds[ 0 ]
 			&& left.ui.preview.pathname === right.ui.preview.pathname
 			&& left.ui.preview.query === right.ui.preview.query
@@ -1402,6 +1410,10 @@
 		} );
 	}
 
+	function deleteClass( definition: ClassDefinition ) {
+		editor.dispatch( { type: 'design/classes/delete', classId: definition.id } );
+	}
+
 	function updateVariableDefinition( definition: VariableDefinition, patch: Partial<VariableDefinition> ) {
 		editor.dispatch( {
 			type: 'design/variables/upsert',
@@ -1410,6 +1422,10 @@
 				...patch,
 			},
 		} );
+	}
+
+	function deleteVariable( definition: VariableDefinition ) {
+		editor.dispatch( { type: 'design/variables/delete', variableId: definition.id } );
 	}
 
 	function createAssignment() {
@@ -1437,6 +1453,58 @@
 	function createLibraryItem() {
 		editor.createLibraryItemFromSelection( newLibraryTitle.trim() || 'Reusable Library Item' );
 		newLibraryTitle = 'Reusable Library Item';
+	}
+
+	function createPageTemplate() {
+		editor.createLibraryItemFromPage( newPageTemplateTitle.trim() || `${ activeDocument.title } Template` );
+		newPageTemplateTitle = 'Page Template';
+	}
+
+	function exportLibraryItem( document: BuilderDocument ) {
+		const templatePackage = createLibraryExportPackage( document );
+		downloadJsonFile( templatePackage, `${ slugifyFileName( document.title || 'library-template' ) }.builder.json` );
+	}
+
+	function createLibraryExportPackage( document: BuilderDocument ): BuilderPackage {
+		return BuilderPackageSchema.parse( {
+			name: document.title || 'Library Template',
+			documents: [ structuredClone( document ) ],
+			themeAssignments: [],
+			designSystem: state.project.designSystem,
+			collections: state.project.collections,
+			media: state.project.media,
+			meta: {
+				exportedFrom: 'svelte-visual-builder',
+				exportedAt: new Date().toISOString(),
+				sourceDocumentId: document.id,
+				sourceDocumentKind: document.kind,
+			},
+		} );
+	}
+
+	function downloadJsonFile( value: unknown, filename: string ) {
+		if ( typeof document === 'undefined' ) {
+			return;
+		}
+
+		const blob = new Blob( [ JSON.stringify( value, null, 2 ) ], { type: 'application/json' } );
+		const url = URL.createObjectURL( blob );
+		const anchor = document.createElement( 'a' );
+		anchor.href = url;
+		anchor.download = filename;
+		anchor.style.display = 'none';
+		document.body.appendChild( anchor );
+		anchor.click();
+		anchor.remove();
+		URL.revokeObjectURL( url );
+	}
+
+	function slugifyFileName( value: string ) {
+		return value
+			.trim()
+			.toLowerCase()
+			.replace( /[^a-z0-9]+/g, '-' )
+			.replace( /^-+|-+$/g, '' ) || 'library-template';
 	}
 
 	async function handleTemplateImportFile( event: Event ) {
@@ -2704,7 +2772,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 </script>
 
 <div class="inspector">
-	{#if state.ui.panel === 'library'}
+	{#if state.ui.panel === 'library' || ( state.ui.shell.leftPanelPage === 'globals' && state.ui.managers.libraryManagerOpen )}
 		<section class="inspector__section inspector__section--library">
 			<div class="inspector__section-header">
 				<div>
@@ -2727,6 +2795,14 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 					<input bind:value={newLibraryTitle} />
 				</label>
 				<button type="button" onclick={createLibraryItem}>Save Selection</button>
+			</div>
+			<div class="inspector__subsection inspector__utility-section">
+				<h4>Save Page Template</h4>
+				<label>
+					<span>Title</span>
+					<input bind:value={newPageTemplateTitle} placeholder={`${ activeDocument.title } Template`} />
+				</label>
+				<button type="button" onclick={createPageTemplate}>Save Current Page</button>
 			</div>
 			{#if libraryImportStatus !== 'idle'}
 				<div class:inspector__import-banner={true} class:inspector__import-banner--error={libraryImportStatus === 'error'}>
@@ -2765,6 +2841,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 								<div class="inspector__actions">
 									<button type="button" onclick={() => editor.insertLibraryItem( document.id )}>Insert</button>
 									<button type="button" onclick={() => openDocument( document.id )}>Open</button>
+									<button type="button" onclick={() => exportLibraryItem( document )}>Export</button>
 									<button type="button" onclick={() => editor.deleteDocument( document.id )}>Delete</button>
 								</div>
 							</article>
@@ -2772,6 +2849,132 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 					</div>
 				{:else}
 					<p class="inspector__empty-state">No library items yet. Import a JSON template or save the current selection.</p>
+				{/if}
+			</div>
+		</section>
+	{:else if ( state.ui.panel === 'design-system' || ( state.ui.shell.leftPanelPage === 'globals' && ( state.ui.managers.classManagerOpen || state.ui.managers.variableManagerOpen ) ) ) && !( state.ui.shell.leftPanelPage === 'globals' && state.ui.managers.componentManagerOpen )}
+		{#if state.ui.managers.variableManagerOpen}
+			<section class="inspector__section inspector__section--globals" data-testid="globals-variables-panel">
+				<div class="inspector__section-header">
+					<div>
+						<p class="inspector__eyebrow">Globals</p>
+						<h3>Variables</h3>
+					</div>
+					<span class="inspector__pill inspector__pill--muted">{state.project.designSystem.variables.length}</span>
+				</div>
+				<div class="inspector__subsection inspector__utility-section">
+					<h4>Create Variable</h4>
+					<label><span>Name</span><input bind:value={selectedVariableName} placeholder="brand-primary" /></label>
+					<label><span>Value</span><input bind:value={selectedVariableValue} placeholder="#d004d4" /></label>
+					<label><span>Kind</span><select bind:value={selectedVariableKind}>{#each variableKinds as kind}<option value={kind}>{formatInspectorLabel( kind )}</option>{/each}</select></label>
+					<label><span>Group</span><input bind:value={selectedVariableGroup} placeholder="Brand" /></label>
+					<label><span>Description</span><textarea rows="2" bind:value={selectedVariableDescription}></textarea></label>
+					<button type="button" onclick={createVariable} disabled={!selectedVariableName.trim()}>Create Variable</button>
+				</div>
+				<label class="inspector__search"><span>Search Variables</span><input bind:value={variableSearch} placeholder="Search by name, kind, group, or source" /></label>
+				<div class="inspector__subsection">
+					<div class="inspector__section-header">
+						<h4>Variables</h4>
+						<span class="inspector__pill inspector__pill--muted">{filteredVariables.length}</span>
+					</div>
+					{#if filteredVariables.length}
+						<div class="inspector__library-list">
+							{#each filteredVariables as definition (definition.id)}
+								<article class="inspector__class-card inspector__library-card">
+									<label><span>Label</span><input value={definition.label} oninput={(event) => updateVariableDefinition( definition, { label: ( event.currentTarget as HTMLInputElement ).value } )} /></label>
+									<label><span>Name</span><input value={definition.name} oninput={(event) => updateVariableDefinition( definition, { name: ( event.currentTarget as HTMLInputElement ).value } )} /></label>
+									<label><span>Value</span><input value={String( definition.value ?? '' )} oninput={(event) => updateVariableDefinition( definition, { value: ( event.currentTarget as HTMLInputElement ).value } )} /></label>
+									<label><span>Kind</span><select value={definition.kind} onchange={(event) => updateVariableDefinition( definition, { kind: ( event.currentTarget as HTMLSelectElement ).value as VariableDefinition['kind'] } )}>{#each variableKinds as kind}<option value={kind}>{formatInspectorLabel( kind )}</option>{/each}</select></label>
+									<label><span>Group</span><input value={definition.group ?? ''} oninput={(event) => updateVariableDefinition( definition, { group: ( event.currentTarget as HTMLInputElement ).value || undefined } )} /></label>
+									<label><span>Description</span><textarea rows="2" oninput={(event) => updateVariableDefinition( definition, { description: ( event.currentTarget as HTMLTextAreaElement ).value || undefined } )}>{definition.description ?? ''}</textarea></label>
+									<div class="inspector__actions">
+										<span class="inspector__pill inspector__pill--muted">{definition.source}</span>
+										<button type="button" onclick={() => deleteVariable( definition )}>Delete</button>
+									</div>
+								</article>
+							{/each}
+						</div>
+					{:else}
+						<p class="inspector__empty-state">No variables match this search.</p>
+					{/if}
+				</div>
+			</section>
+		{:else}
+			<section class="inspector__section inspector__section--globals" data-testid="globals-classes-panel">
+				<div class="inspector__section-header">
+					<div>
+						<p class="inspector__eyebrow">Globals</p>
+						<h3>Classes</h3>
+					</div>
+					<button type="button" onclick={createClass}>Create Class</button>
+				</div>
+				<label class="inspector__search"><span>Search Classes</span><input bind:value={classSearch} placeholder="Search by name, group, or description" /></label>
+				<div class="inspector__subsection">
+					<div class="inspector__section-header">
+						<h4>Classes</h4>
+						<span class="inspector__pill inspector__pill--muted">{filteredClasses.length}</span>
+					</div>
+					{#if filteredClasses.length}
+						<div class="inspector__library-list">
+							{#each filteredClasses as definition (definition.id)}
+								<article class="inspector__class-card inspector__library-card">
+									<label><span>Label</span><input value={definition.label} oninput={(event) => updateClassDefinition( definition, { label: ( event.currentTarget as HTMLInputElement ).value } )} /></label>
+									<label><span>Name</span><input value={definition.name} oninput={(event) => updateClassDefinition( definition, { name: ( event.currentTarget as HTMLInputElement ).value } )} /></label>
+									<label><span>Group</span><input value={definition.group ?? ''} oninput={(event) => updateClassDefinition( definition, { group: ( event.currentTarget as HTMLInputElement ).value || undefined } )} /></label>
+									<label><span>Description</span><textarea rows="2" oninput={(event) => updateClassDefinition( definition, { description: ( event.currentTarget as HTMLTextAreaElement ).value || undefined } )}>{definition.description ?? ''}</textarea></label>
+									<label><span>Padding</span><input value={String( definition.styles.base.padding ?? '' )} oninput={(event) => updateClassStyle( definition, 'padding', ( event.currentTarget as HTMLInputElement ).value )} /></label>
+									<label><span>Background</span><input value={String( definition.styles.base.background ?? '' )} oninput={(event) => updateClassStyle( definition, 'background', ( event.currentTarget as HTMLInputElement ).value )} /></label>
+									<div class="inspector__actions">
+										<span class="inspector__pill inspector__pill--muted">Used {definition.usageCount}</span>
+										<button type="button" onclick={() => deleteClass( definition )}>Delete</button>
+									</div>
+								</article>
+							{/each}
+						</div>
+					{:else}
+						<p class="inspector__empty-state">No classes match this search.</p>
+					{/if}
+				</div>
+			</section>
+		{/if}
+	{:else if state.ui.panel === 'components' || ( state.ui.shell.leftPanelPage === 'globals' && state.ui.managers.componentManagerOpen )}
+		<section class="inspector__section inspector__section--globals" data-testid="globals-components-panel">
+			<div class="inspector__section-header">
+				<div>
+					<p class="inspector__eyebrow">Globals</p>
+					<h3>Components</h3>
+				</div>
+				<span class="inspector__pill inspector__pill--muted">{componentDocuments.length}</span>
+			</div>
+			<div class="inspector__subsection inspector__utility-section">
+				<h4>Create Component</h4>
+				<label><span>Title</span><input bind:value={newComponentTitle} /></label>
+				<button type="button" onclick={createComponentDocument}>Create Component</button>
+			</div>
+			<div class="inspector__subsection">
+				<div class="inspector__section-header">
+					<h4>Components</h4>
+					<span class="inspector__pill inspector__pill--muted">{componentDocuments.length}</span>
+				</div>
+				{#if componentDocuments.length}
+					<div class="inspector__library-list">
+						{#each componentDocuments as document (document.id)}
+							<article class="inspector__class-card inspector__library-card">
+								<div>
+									<h5>{document.title}</h5>
+									<p>{document.status} / {document.kind}</p>
+									<p>{getComponentUsageCount( document.id )} instances</p>
+								</div>
+								<div class="inspector__actions">
+									<button type="button" onclick={() => editor.insertComponentInstance( document.id )}>Insert</button>
+									<button type="button" onclick={() => openDocument( document.id, 'component-master' )}>Open</button>
+									<button type="button" onclick={() => editor.deleteDocument( document.id )}>Delete</button>
+								</div>
+							</article>
+						{/each}
+					</div>
+				{:else}
+					<p class="inspector__empty-state">No components yet. Create a component document to reuse across pages.</p>
 				{/if}
 			</div>
 		</section>
@@ -3455,6 +3658,16 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 	.inspector select:hover {
 		border-color: rgba( 255, 255, 255, 0.24 );
 		background: rgba( 255, 255, 255, 0.075 );
+	}
+
+	.inspector select option {
+		background: #ffffff;
+		color: #111827;
+	}
+
+	.inspector select option:checked {
+		background: #2563eb;
+		color: #ffffff;
 	}
 
 	.inspector textarea:focus-visible,

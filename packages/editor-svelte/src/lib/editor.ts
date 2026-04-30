@@ -140,6 +140,7 @@ export interface BuilderEditorController {
 	createDocument: ( kind: DocumentKind, title: string ) => string;
 	deleteDocument: ( documentId?: string ) => void;
 	createLibraryItemFromSelection: ( title: string ) => string;
+	createLibraryItemFromPage: ( title: string ) => string;
 	reviewTemplatesFromJson: ( payload: unknown, options?: TemplateImportOptions ) => Promise<TemplateImportReviewResult>;
 	reviewHtmlTemplate: ( payload: HtmlImportPayload, options?: TemplateImportOptions ) => Promise<TemplateImportReviewResult>;
 	commitTemplateImportReview: ( review: TemplateImportReviewResult, options?: TemplateImportOptions ) => Promise<Omit<TemplateImportResult, 'project'>>;
@@ -1721,6 +1722,20 @@ export function createBuilderEditor( project: BuilderPackage, options: CreateBui
 			document.meta = {
 				sourceDocumentId: activeDocument.id,
 				selectionBased: selectedNodes.length > 0,
+			};
+			engine.dispatch( { type: 'document/create', document } );
+			return document.id;
+		},
+		createLibraryItemFromPage: ( title ) => {
+			const activeDocument = getActiveDocument( engine.getState() );
+			const document = createDocument( 'library-item', title );
+			document.root = activeDocument.root.map( cloneNodeTreeWithFreshIds );
+			document.meta = {
+				sourceDocumentId: activeDocument.id,
+				sourceDocumentTitle: activeDocument.title,
+				sourceDocumentKind: activeDocument.kind,
+				selectionBased: false,
+				fullPageTemplate: true,
 			};
 			engine.dispatch( { type: 'document/create', document } );
 			return document.id;
