@@ -40,6 +40,7 @@
 	import { createAnchorController } from './anchor-controller';
 	import {
 		isBuilderDndData,
+		isBuilderDroppableData,
 		resolveClientPoint,
 		resolveEditorDragLocation,
 	} from './drag-drop';
@@ -844,8 +845,9 @@
 		clientX: number,
 		clientY: number,
 		mode: 'immediate' | 'queued' = 'queued',
+		coarseDropTarget = resolveInteractionCoreCoarseTarget( currentInteractionCoreDragOperation ),
 	) {
-		const nextState = resolveEditorDragLocation( editor.engine.getState(), clientX, clientY, getPreviewFrame() );
+		const nextState = resolveEditorDragLocation( editor.engine.getState(), clientX, clientY, getPreviewFrame(), coarseDropTarget );
 		if ( mode === 'immediate' ) {
 			editor.setTransientDrag( nextState );
 			return nextState;
@@ -857,6 +859,9 @@
 
 	type InteractionCoreDragOperation = {
 		source?: {
+			data?: unknown;
+		} | null;
+		target?: {
 			data?: unknown;
 		} | null;
 		position?: {
@@ -871,9 +876,17 @@
 		canceled?: boolean;
 	};
 
+	let currentInteractionCoreDragOperation: InteractionCoreDragOperation = undefined;
+
 	function resolveInteractionCoreDragData( operation?: InteractionCoreDragOperation ) {
 		const candidate = operation?.source?.data;
 		return isBuilderDndData( candidate ) ? candidate : undefined;
+	}
+
+	function resolveInteractionCoreCoarseTarget( operation?: InteractionCoreDragOperation ) {
+		const candidate = operation?.target?.data;
+		const droppableData = isBuilderDroppableData( candidate ) ? candidate : undefined;
+		return droppableData && droppableData.priority !== 'root' ? droppableData.target : undefined;
 	}
 
 	function resolveInteractionCoreDragPoint( event: InteractionCoreDragEvent ): { clientX: number; clientY: number } | undefined {
@@ -902,6 +915,7 @@
 	}
 
 	function handleInteractionCoreDragStart( event: InteractionCoreDragEvent ) {
+		currentInteractionCoreDragOperation = event.operation;
 		const dragData = resolveInteractionCoreDragData( event.operation );
 		if ( !dragData ) {
 			return;
@@ -944,6 +958,7 @@
 	}
 
 	function handleInteractionCoreDragMove( event: InteractionCoreDragEvent ) {
+		currentInteractionCoreDragOperation = event.operation;
 		const clientPoint = resolveInteractionCoreDragPoint( event );
 		if ( !clientPoint || !editor.engine.getState().ui.dragSession ) {
 			return;

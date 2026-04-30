@@ -24,13 +24,27 @@ describe( 'interaction core drop targeting', () => {
 		const state = createDragState( 'create', verticalBounds() );
 
 		const beforeFirst = resolveInteractionCoreDropTarget( state, { x: 180, y: 101 } );
+		const nearFirstGap = resolveInteractionCoreDropTarget( state, { x: 180, y: 145 } );
 		const betweenFirstAndSecond = resolveInteractionCoreDropTarget( state, { x: 180, y: 156 } );
 		const afterLast = resolveInteractionCoreDropTarget( state, { x: 180, y: 234 } );
 
 		expect( beforeFirst ).toMatchObject( { parentId: 'container', index: 0, placement: 'before', targetNodeId: 'one' } );
-		expect( beforeFirst?.indicatorRect?.height ).toBeGreaterThanOrEqual( 24 );
+		expect( beforeFirst?.indicatorRect?.height ).toBeGreaterThanOrEqual( 32 );
+		expect( nearFirstGap ).toMatchObject( { parentId: 'container', index: 1, placement: 'after', targetNodeId: 'one' } );
 		expect( betweenFirstAndSecond ).toMatchObject( { parentId: 'container', index: 1, placement: 'after', targetNodeId: 'one' } );
 		expect( afterLast ).toMatchObject( { parentId: 'container', index: 3, placement: 'after', targetNodeId: 'three' } );
+	} );
+
+	it( 'resolves container palette drags with the same insertion bands as content nodes', () => {
+		const state = createDragState( 'create-container', verticalBounds() );
+
+		const beforeFirst = resolveInteractionCoreDropTarget( state, { x: 180, y: 101 } );
+		const betweenFirstAndSecond = resolveInteractionCoreDropTarget( state, { x: 180, y: 156 } );
+
+		expect( beforeFirst ).toMatchObject( { parentId: 'container', index: 0, placement: 'before', targetNodeId: 'one' } );
+		expect( beforeFirst?.indicatorRect?.height ).toBeGreaterThanOrEqual( 32 );
+		expect( betweenFirstAndSecond ).toMatchObject( { parentId: 'container', index: 1, placement: 'after', targetNodeId: 'one' } );
+		expect( betweenFirstAndSecond?.indicatorRect?.height ).toBeGreaterThanOrEqual( 32 );
 	} );
 
 	it( 'suppresses same-parent no-op reorder targets while preserving real moves', () => {
@@ -66,17 +80,35 @@ describe( 'interaction core drop targeting', () => {
 		const state = createDragState( 'create', horizontalBounds() );
 
 		const beforeFirst = resolveInteractionCoreDropTarget( state, { x: 101, y: 140 } );
+		const nearFirstGap = resolveInteractionCoreDropTarget( state, { x: 145, y: 140 } );
 		const betweenFirstAndSecond = resolveInteractionCoreDropTarget( state, { x: 156, y: 140 } );
 		const afterLast = resolveInteractionCoreDropTarget( state, { x: 284, y: 140 } );
 
 		expect( beforeFirst ).toMatchObject( { index: 0, placement: 'before', targetNodeId: 'one' } );
-		expect( beforeFirst?.indicatorRect?.width ).toBeGreaterThanOrEqual( 24 );
+		expect( beforeFirst?.indicatorRect?.width ).toBeGreaterThanOrEqual( 32 );
+		expect( nearFirstGap ).toMatchObject( { index: 1, placement: 'after', targetNodeId: 'one' } );
 		expect( betweenFirstAndSecond ).toMatchObject( { index: 1, placement: 'after', targetNodeId: 'one' } );
 		expect( afterLast ).toMatchObject( { index: 3, placement: 'after', targetNodeId: 'three' } );
 	} );
+
+	it( 'preserves the current semantic target during small pointer jitter', () => {
+		const initialState = createDragState( 'create', verticalBounds() );
+		const currentTarget = resolveInteractionCoreDropTarget( initialState, { x: 180, y: 156 } );
+		const stableState = {
+			...initialState,
+			ui: {
+				...initialState.ui,
+				dropTarget: currentTarget,
+			},
+		};
+
+		const target = resolveInteractionCoreDropTarget( stableState, { x: 182, y: 151 } );
+
+		expect( target ).toBe( currentTarget );
+	} );
 } );
 
-function createDragState( mode: 'create' | 'move-two' | 'move-three', nodeBounds: NodeBounds[] ) {
+function createDragState( mode: 'create' | 'create-container' | 'move-two' | 'move-three', nodeBounds: NodeBounds[] ) {
 	const engine = createBuilderEngine( createBuilderPackage( 'Demo', [ document ] ), document.id );
 	engine.dispatch( {
 		type: 'document/ui/set-canvas-measurements',
@@ -97,14 +129,14 @@ function createDragState( mode: 'create' | 'move-two' | 'move-three', nodeBounds
 	} );
 	engine.dispatch( {
 		type: 'document/ui/start-drag',
-		session: mode === 'create'
+		session: mode === 'create' || mode === 'create-container'
 			? {
 				kind: 'create',
 				documentId: document.id,
 				start: { x: 0, y: 0 },
 				current: { x: 0, y: 0 },
-				elementType: 'heading',
-				templateNode: createNode( { type: 'heading' } ),
+				elementType: mode === 'create-container' ? 'container' : 'heading',
+				templateNode: createNode( { type: mode === 'create-container' ? 'container' : 'heading' } ),
 			}
 			: {
 				kind: 'move',

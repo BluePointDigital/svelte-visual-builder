@@ -1,6 +1,6 @@
 # Svelte Visual Builder
 
-Version 0.2.0
+Version 0.2.5
 
 A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svelte applications. It provides an Elementor-style editing experience while keeping persistence, media storage, auth, dynamic data, and AI provider settings owned by the host app.
 
@@ -18,6 +18,14 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
 ## Latest Changes
+
+### Version 0.2.5 - 2026-04-30
+
+- Smoothed drag-and-drop from the Elements panel into the canvas with more forgiving insertion hit zones and steadier target resolution.
+- `Container` and `Grid Container` now use the same visible before/after insertion bands as content elements when dropped between children, while still supporting intentional inside drops.
+- Added selective `@dnd-kit/svelte` droppable regions for stable canvas, slot, empty-container, and navigator targets, with the custom builder resolver remaining the final authority.
+- Improved drag start reliability from palette tiles, preserved click-to-insert, and made inside-vs-before-vs-after feedback clearer.
+- Added unit and Playwright coverage for container drops into filled containers, visible insertion bands, empty-container drops, drag overlays, and click-to-insert behavior.
 
 ### Version 0.2.0 - 2026-04-29
 

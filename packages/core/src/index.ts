@@ -576,7 +576,7 @@ export class BuilderEngine {
 		}
 
 		if ( session.kind === 'create' && session.templateNode ) {
-			const resolvedCreateTarget = resolveCreateDropTarget( this.#state, session.templateNode, target );
+			const resolvedCreateTarget = resolveCreateDropTarget( target );
 			this.dispatch( {
 				type: 'document/elements/create',
 				documentId: target.documentId,
@@ -855,53 +855,12 @@ export function getActiveDocument( state: BuilderEngineState ): BuilderDocument 
 	return getDocumentById( state.project, state.activeDocumentId );
 }
 
-function resolveCreateDropTarget(
-	state: BuilderEngineState,
-	node: BuilderNode,
-	target: DropTarget,
-): Pick<DropTarget, 'parentId' | 'slot' | 'index'> {
-	if ( !isRootLevelLayoutBuilderNode( node ) || !target.parentId ) {
-		return {
-			parentId: target.parentId,
-			slot: target.slot,
-			index: target.index,
-		};
-	}
-
-	const document = getDocumentById( state.project, target.documentId );
-	const targetLocation = getNodeLocation( document.root, target.parentId );
-	const topLevelTargetId = targetLocation?.path[ 0 ];
-	const topLevelTargetIndex = topLevelTargetId
-		? document.root.findIndex( ( entry ) => entry.id === topLevelTargetId )
-		: -1;
-	const topLevelTargetNode = topLevelTargetIndex >= 0
-		? document.root[ topLevelTargetIndex ]
-		: undefined;
-	if ( !targetLocation || !topLevelTargetNode || !nodeHasChildContent( topLevelTargetNode ) ) {
-		return {
-			parentId: target.parentId,
-			slot: target.slot,
-			index: target.index,
-		};
-	}
-
+function resolveCreateDropTarget( target: DropTarget ): Pick<DropTarget, 'parentId' | 'slot' | 'index'> {
 	return {
-		parentId: undefined,
-		slot: undefined,
-		index: topLevelTargetIndex + 1,
+		parentId: target.parentId,
+		slot: target.slot,
+		index: target.index,
 	};
-}
-
-function isRootLevelLayoutBuilderNode( node: BuilderNode ) {
-	return node.type === 'container' || node.type === 'grid-container';
-}
-
-function nodeHasChildContent( node: BuilderNode ) {
-	if ( node.children.length > 0 ) {
-		return true;
-	}
-
-	return Object.values( node.slots as Record<string, BuilderNode[]> ).some( ( slotNodes ) => slotNodes.length > 0 );
 }
 
 export function getDocumentRevisions( project: BuilderPackage, documentId: string ): DocumentRevision[] {

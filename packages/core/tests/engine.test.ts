@@ -188,6 +188,86 @@ describe( 'BuilderEngine', () => {
 		expect( engine.getState().ui.dropTarget ).toBeUndefined();
 	} );
 
+	it( 'respects explicit into targets when creating layout nodes through drag commit', () => {
+		const engine = createDemoEngine();
+		const documentId = engine.getState().activeDocumentId;
+
+		engine.dispatch( {
+			type: 'document/ui/start-drag',
+			session: {
+				kind: 'create',
+				documentId,
+				elementType: 'container',
+				templateNode: createNode( { id: 'new-container', type: 'container' } ),
+				label: 'Container',
+				pointer: { x: 0, y: 0 },
+			},
+		} );
+		engine.dispatch( {
+			type: 'document/ui/set-drop-target',
+			target: {
+				documentId,
+				parentId: 'root-container',
+				index: 1,
+				placement: 'into',
+				targetNodeId: 'root-container',
+				rect: {
+					top: 0,
+					left: 0,
+					right: 0,
+					bottom: 0,
+					width: 0,
+					height: 0,
+				},
+			},
+		} );
+		engine.dispatch( { type: 'document/ui/commit-drag' } );
+
+		const root = engine.getState().project.documents[ 0 ].root;
+		expect( root ).toHaveLength( 1 );
+		expect( root[ 0 ].children.map( ( node ) => node.type ) ).toEqual( [ 'heading', 'container' ] );
+	} );
+
+	it( 'respects before targets when creating layout nodes inside containers through drag commit', () => {
+		const engine = createDemoEngine();
+		const documentId = engine.getState().activeDocumentId;
+
+		engine.dispatch( {
+			type: 'document/ui/start-drag',
+			session: {
+				kind: 'create',
+				documentId,
+				elementType: 'container',
+				templateNode: createNode( { id: 'new-container', type: 'container' } ),
+				label: 'Container',
+				pointer: { x: 0, y: 0 },
+			},
+		} );
+		engine.dispatch( {
+			type: 'document/ui/set-drop-target',
+			target: {
+				documentId,
+				parentId: 'root-container',
+				index: 0,
+				placement: 'before',
+				targetNodeId: 'headline',
+				rect: {
+					top: 0,
+					left: 0,
+					right: 0,
+					bottom: 0,
+					width: 0,
+					height: 0,
+				},
+			},
+		} );
+		engine.dispatch( { type: 'document/ui/commit-drag' } );
+
+		const root = engine.getState().project.documents[ 0 ].root;
+		expect( root ).toHaveLength( 1 );
+		expect( root[ 0 ].children.map( ( node ) => node.type ) ).toEqual( [ 'container', 'heading' ] );
+	} );
+
 	it( 'tracks draft, autosave, publish, and restore flows with revision snapshots', () => {
 		const engine = createDemoEngine();
 

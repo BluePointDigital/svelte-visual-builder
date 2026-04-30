@@ -7,6 +7,7 @@ import {
 	dragElementTileIntoTarget,
 	dragPaletteTileByNameIntoPreview,
 	dragSelectedNodeGrabToTarget,
+	beginElementTileDragToTarget,
 	beginNavigatorHandleDragToTarget,
 	beginSelectedNodeGrabDragToTarget,
 	contextMenuSurface,
@@ -52,6 +53,48 @@ async function readDirectChildNodeIds( container: Locator ): Promise<string[]> {
 	return container.evaluate( ( element ) => [ ...( element.querySelectorAll( ':scope > [data-builder-node]' ) as NodeListOf<HTMLElement> ) ]
 		.map( ( child ) => child.getAttribute( 'data-builder-node' ) ?? '' )
 		.filter( Boolean ) );
+}
+
+async function readPreviewContainerIds( page: Page ): Promise<string[]> {
+	return previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' ).evaluateAll( ( elements ) => elements
+		.map( ( element ) => element.getAttribute( 'data-builder-node' ) ?? '' )
+		.filter( Boolean ) );
+}
+
+async function dragNewContainerIntoPreviewAndReadId( page: Page, tile: Locator, offset: { x: number; y: number } = { x: 20, y: 220 } ): Promise<string> {
+	const beforeIds = new Set( await readPreviewContainerIds( page ) );
+	await dragElementTileIntoPreview( page, tile, offset );
+	await expect.poll( async () => {
+		const afterIds = await readPreviewContainerIds( page );
+		return afterIds.find( ( id ) => !beforeIds.has( id ) ) ?? '';
+	} ).not.toBe( '' );
+	const afterIds = await readPreviewContainerIds( page );
+	return afterIds.find( ( id ) => !beforeIds.has( id ) ) ?? '';
+}
+
+async function dragNewContainerIntoTargetAndReadId(
+	page: Page,
+	tile: Locator,
+	target: Locator,
+	relativePosition: { x?: number; y?: number } = { x: 0.55, y: 0.55 },
+): Promise<string> {
+	const beforeIds = new Set( await readPreviewContainerIds( page ) );
+	await dragElementTileIntoTarget( page, tile, target, relativePosition );
+	await expect.poll( async () => {
+		const afterIds = await readPreviewContainerIds( page );
+		return afterIds.find( ( id ) => !beforeIds.has( id ) ) ?? '';
+	} ).not.toBe( '' );
+	const afterIds = await readPreviewContainerIds( page );
+	return afterIds.find( ( id ) => !beforeIds.has( id ) ) ?? '';
+}
+
+async function selectNodeById( page: Page, nodeId: string ) {
+	await page.evaluate( ( selectedNodeId ) => {
+		( window as Window & { __builderEditor?: { engine?: { dispatch: ( command: unknown ) => void } } } ).__builderEditor?.engine?.dispatch( {
+			type: 'document/ui/select-node',
+			nodeId: selectedNodeId,
+		} );
+	}, nodeId );
 }
 
 test( 'the studio shell boundary resolves production to the V3 shell by default', async ( { page } ) => {
@@ -743,21 +786,21 @@ test( 'empty containers should show the + Drop Items affordance', async ( { page
 	const containerTile = elements.locator( '.elements-panel__group' ).first().locator( '.elements-panel__tile' ).first();
 	const beforeCount = await previewFrame( page ).locator( '[data-builder-node]' ).count();
 
-	await dragElementTileIntoPreview( page, containerTile );
+	await dragElementTileIntoPreview( page, containerTile, { x: 20, y: 220 } );
 	await expect.poll( async () => previewFrame( page ).locator( '[data-builder-node]' ).count() ).toBeGreaterThan( beforeCount );
 	await expect( previewFrame( page ).getByText( '+ Drop Items', { exact: true } ) ).toBeVisible();
 } );
 
-test( 'dragging a container into the canvas can create a new top-level root container', async ( { page } ) => {
+test( 'dragging a container into the canvas creates a visible container node', async ( { page } ) => {
 	await loadBuilderShell( page );
 	await switchToElementsPanel( page );
 
 	const containerTile = page.getByLabel( 'Element palette' ).getByRole( 'button', { name: 'Container' } ).first();
-	const rootChildCountBeforeInsert = await readPreviewRootChildCount( page );
+	const containerCountBeforeInsert = await previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' ).count();
 
-	await dragElementTileIntoPreview( page, containerTile );
+	await dragElementTileIntoPreview( page, containerTile, { x: 20, y: 220 } );
 
-	await expect.poll( async () => readPreviewRootChildCount( page ) ).toBeGreaterThan( rootChildCountBeforeInsert );
+	await expect.poll( async () => previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' ).count() ).toBeGreaterThan( containerCountBeforeInsert );
 } );
 
 test( 'dragging a container into an existing container should nest it instead of dropping at the root', async ( { page } ) => {
@@ -778,6 +821,90 @@ test( 'dragging a container into an existing container should nest it instead of
 
 	await expect.poll( async () => previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' ).count() ).toBeGreaterThan( afterFirstInsertCount );
 	await expect.poll( async () => readPreviewRootChildCount( page ) ).toBe( rootChildCountBeforeNestedDrop );
+} );
+
+test( 'dragging a new container into the middle of a filled canvas container nests instead of inserting above', async ( { page } ) => {
+	await loadBuilderShell( page );
+	await switchToElementsPanel( page );
+
+	const containerTile = page.getByLabel( 'Element palette' ).getByRole( 'button', { name: 'Container' } ).first();
+	const filledContainer = previewFrame( page )
+		.getByRole( 'heading', { name: 'Parity-oriented Svelte page building' } )
+		.locator( 'xpath=ancestor::*[@data-builder-node and @data-builder-type="container"][1]' );
+	await expect( filledContainer ).toBeVisible();
+	const filledContainerId = await filledContainer.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
+	if ( !filledContainerId ) {
+		throw new Error( 'Unable to resolve filled container id.' );
+	}
+	const stableFilledContainer = previewFrame( page ).locator( `[data-builder-node="${ filledContainerId }"]` );
+	const rootChildCountBeforeDrop = await readPreviewRootChildCount( page );
+	const totalContainerCountBeforeDrop = await previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' ).count();
+
+	await beginElementTileDragToTarget( page, containerTile, stableFilledContainer, { x: 0.55, y: 0.55 } );
+	await expect( page.locator( '.builder-preview__drop-target[data-drop-placement="into"]' ) ).toBeVisible();
+	await expect.poll( async () => page.evaluate( () => {
+		const editor = ( window as Window & {
+			__builderEditor?: {
+				engine?: {
+					getState: () => {
+						ui?: {
+							dropTarget?: {
+								parentId?: string;
+								placement?: string;
+							};
+						};
+					};
+				};
+			};
+		} ).__builderEditor;
+		const dropTarget = editor?.engine?.getState().ui?.dropTarget;
+		return {
+			parentId: dropTarget?.parentId,
+			placement: dropTarget?.placement,
+			targetNodeId: dropTarget?.targetNodeId,
+			slot: dropTarget?.slot,
+			index: dropTarget?.index,
+		};
+	} ) ).toMatchObject( {
+		placement: 'into',
+	} );
+	await page.mouse.up();
+
+	await expect.poll( async () => readPreviewRootChildCount( page ) ).toBe( rootChildCountBeforeDrop );
+	await expect.poll( async () => previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' ).count() ).toBeGreaterThan( totalContainerCountBeforeDrop );
+} );
+
+test( 'palette drag shows dnd overlay and coarse droppable feedback while preserving click insert', async ( { page } ) => {
+	await loadBuilderShell( page );
+	await switchToElementsPanel( page );
+
+	const palette = page.getByLabel( 'Element palette' );
+	const containerTile = palette.getByRole( 'button', { name: 'Container' } ).first();
+	const buttonTile = palette.getByRole( 'button', { name: 'Button' } ).first();
+	const beforeClickCount = await readPreviewRootChildCount( page );
+
+	await buttonTile.click();
+	await expect.poll( async () => readPreviewRootChildCount( page ) ).toBeGreaterThan( beforeClickCount );
+	await switchToElementsPanel( page );
+
+	await dragElementTileIntoPreview( page, containerTile );
+	const targetContainer = previewFrame( page )
+		.locator( '[data-builder-node][data-builder-type="container"][data-builder-empty-container="true"]' )
+		.first();
+	await expect( targetContainer ).toBeVisible();
+	const targetContainerId = await targetContainer.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
+	if ( !targetContainerId ) {
+		throw new Error( 'Unable to resolve target container for palette drag feedback test.' );
+	}
+	const stableTargetContainer = previewFrame( page ).locator( `[data-builder-node="${ targetContainerId }"]` );
+
+	await beginElementTileDragToTarget( page, buttonTile, stableTargetContainer, { x: 0.52, y: 0.52 } );
+	await expect( page.locator( '.builder-shell__drag-overlay' ) ).toBeVisible();
+	await expect( page.locator( '[data-builder-coarse-drop-active="true"]' ).first() ).toBeVisible();
+	await expect( page.locator( '.builder-preview__drag-ghost' ) ).toHaveCount( 0 );
+	await page.mouse.up();
+
+	await expect.poll( async () => stableTargetContainer.locator( '[data-builder-node][data-builder-type="button"]' ).count() ).toBeGreaterThan( 0 );
 } );
 
 test( 'before drop targets render a prominent insertion band and highlight for container stacks', async ( { page } ) => {
@@ -916,21 +1043,26 @@ test( 'dragging an existing element from one container into another should relia
 
 	const palette = page.getByLabel( 'Element palette' );
 	const containerTile = palette.getByRole( 'button', { name: 'Container' } ).first();
+	const filledContainer = previewFrame( page )
+		.getByRole( 'heading', { name: 'Parity-oriented Svelte page building' } )
+		.locator( 'xpath=ancestor::*[@data-builder-node and @data-builder-type="container"][1]' );
+	await expect( filledContainer ).toBeVisible();
 
-	await dragElementTileIntoPreview( page, containerTile, { x: 240, y: 220 } );
+	const targetContainerId = await dragNewContainerIntoTargetAndReadId( page, containerTile, filledContainer );
 
 	const containers = previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' );
 	await expect.poll( async () => containers.count() ).toBeGreaterThanOrEqual( 2 );
 
-	const dropPlaceholder = previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"][data-builder-empty-container="true"]' ).first();
-	await expect( dropPlaceholder ).toBeVisible();
-	const targetContainerId = await dropPlaceholder.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
-	if ( !targetContainerId ) {
-		throw new Error( 'Unable to resolve the target container for reparenting.' );
-	}
 	const targetContainer = previewFrame( page ).locator( `[data-builder-node="${ targetContainerId }"]` );
+	await expect( targetContainer ).toBeVisible();
 
 	const sourceHeading = previewFrame( page ).getByRole( 'heading', { name: 'Named slot orchestration' } );
+	const sourceHeadingNode = sourceHeading.locator( 'xpath=ancestor-or-self::*[@data-builder-node and @data-builder-type="heading"][1]' );
+	await expect( sourceHeadingNode ).toBeVisible();
+	const sourceHeadingId = await sourceHeadingNode.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
+	if ( !sourceHeadingId ) {
+		throw new Error( 'Unable to resolve the source heading id.' );
+	}
 	const sourceContainerId = await sourceHeading.evaluate( ( element ) => element.closest( '[data-builder-node][data-builder-type="container"]' )?.getAttribute( 'data-builder-node' ) );
 	if ( !sourceContainerId ) {
 		throw new Error( 'Unable to resolve the source container for the existing heading.' );
@@ -954,15 +1086,10 @@ test( 'dragging within a container uses forgiving before and after insertion zon
 	const headingTile = palette.getByRole( 'button', { name: 'Heading' } ).first();
 	const paragraphTile = palette.getByRole( 'button', { name: 'Paragraph' } ).first();
 
-	await dragElementTileIntoPreview( page, containerTile, { x: 240, y: 220 } );
+	const sourceContainerId = await dragNewContainerIntoPreviewAndReadId( page, containerTile );
 	const sourceContainer = previewFrame( page )
-		.locator( '[data-builder-node][data-builder-type="container"][data-builder-empty-container="true"]' )
-		.first();
+		.locator( `[data-builder-node="${ sourceContainerId }"]` );
 	await expect( sourceContainer ).toBeVisible();
-	const sourceContainerId = await sourceContainer.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
-	if ( !sourceContainerId ) {
-		throw new Error( 'Unable to resolve test container id.' );
-	}
 	const stableSourceContainer = previewFrame( page ).locator( `[data-builder-node="${ sourceContainerId }"]` );
 
 	await dragElementTileIntoTarget( page, headingTile, stableSourceContainer, { x: 0.5, y: 0.5 } );
@@ -1012,6 +1139,49 @@ test( 'palette items can be inserted between tight siblings inside a container',
 	await expect( sourceContainer.locator( `xpath=./*[@data-builder-node="${ nextChildIds[ 1 ] }"]` ) ).toHaveAttribute( 'data-builder-type', 'button' );
 } );
 
+test( 'container palette items use before and after insertion bands inside containers', async ( { page } ) => {
+	await loadBuilderShell( page );
+	await switchToElementsPanel( page );
+
+	const sourceHeading = previewFrame( page ).getByRole( 'heading', { name: 'Named slot orchestration' } );
+	const sourceContainer = sourceHeading.locator( 'xpath=ancestor::*[@data-builder-node and @data-builder-type="container"][1]' );
+	await expect( sourceContainer ).toBeVisible();
+	const initialChildIds = await readDirectChildNodeIds( sourceContainer );
+	expect( initialChildIds.length ).toBeGreaterThanOrEqual( 2 );
+
+	const containerTile = page.getByLabel( 'Element palette' ).getByRole( 'button', { name: 'Container' } ).first();
+	const secondChild = sourceContainer.locator( `xpath=./*[@data-builder-node="${ initialChildIds[ 1 ] }"]` );
+	await beginElementTileDragToTarget( page, containerTile, secondChild, { x: 0.05, y: 0.05 } );
+	await expect.poll( async () => page.evaluate( () => {
+		const editor = ( window as Window & {
+			__builderEditor?: {
+				engine?: {
+					getState: () => {
+						ui?: {
+							dropTarget?: {
+								placement?: string;
+								parentId?: string;
+								targetNodeId?: string;
+								index?: number;
+							};
+						};
+					};
+				};
+			};
+		} ).__builderEditor;
+		const placement = editor?.engine?.getState().ui?.dropTarget?.placement ?? '';
+		return placement === 'before' || placement === 'after';
+	} ) ).toBe( true );
+	await expect( page.locator( '.builder-preview__drop-target.band' ) ).toBeVisible();
+	await page.mouse.up();
+
+	await expect.poll( async () => readDirectChildNodeIds( sourceContainer ) ).toHaveLength( initialChildIds.length + 1 );
+	const nextChildIds = await readDirectChildNodeIds( sourceContainer );
+	expect( nextChildIds[ 0 ] ).toBe( initialChildIds[ 0 ] );
+	expect( nextChildIds[ 2 ] ).toBe( initialChildIds[ 1 ] );
+	await expect( sourceContainer.locator( `xpath=./*[@data-builder-node="${ nextChildIds[ 1 ] }"]` ) ).toHaveAttribute( 'data-builder-type', 'container' );
+} );
+
 test( 'navigator drags reuse the preview drop target semantics and reparent into canvas containers', async ( { page } ) => {
 	await loadBuilderShell( page );
 	await switchToElementsPanel( page );
@@ -1019,7 +1189,7 @@ test( 'navigator drags reuse the preview drop target semantics and reparent into
 	const palette = page.getByLabel( 'Element palette' );
 	const containerTile = palette.getByRole( 'button', { name: 'Container' } ).first();
 
-	await dragElementTileIntoPreview( page, containerTile, { x: 240, y: 220 } );
+	await containerTile.click();
 
 	const containers = previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' );
 	await expect.poll( async () => containers.count() ).toBeGreaterThanOrEqual( 2 );
@@ -2109,21 +2279,26 @@ test( 'dense 200-node drag pointer movement does not remount the preview or disp
 
 	const palette = page.getByLabel( 'Element palette' );
 	const containerTile = palette.getByRole( 'button', { name: 'Container' } ).first();
+	const filledContainer = previewFrame( page )
+		.getByRole( 'heading', { name: 'Parity-oriented Svelte page building' } )
+		.locator( 'xpath=ancestor::*[@data-builder-node and @data-builder-type="container"][1]' );
+	await expect( filledContainer ).toBeVisible();
 
-	await dragElementTileIntoPreview( page, containerTile, { x: 240, y: 220 } );
+	const targetContainerId = await dragNewContainerIntoTargetAndReadId( page, containerTile, filledContainer );
 
 	const containers = previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"]' );
 	await expect.poll( async () => containers.count() ).toBeGreaterThanOrEqual( 2 );
 
-	const dropPlaceholder = previewFrame( page ).locator( '[data-builder-node][data-builder-type="container"][data-builder-empty-container="true"]' ).first();
-	await expect( dropPlaceholder ).toBeVisible();
-	const targetContainerId = await dropPlaceholder.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
-	if ( !targetContainerId ) {
-		throw new Error( 'Unable to resolve the target container for the drag perf test.' );
-	}
-
 	const targetContainer = previewFrame( page ).locator( `[data-builder-node="${ targetContainerId }"]` );
-	await previewFrame( page ).getByRole( 'heading', { name: 'Named slot orchestration' } ).click( { force: true } );
+	await expect( targetContainer ).toBeVisible();
+	const sourceHeading = previewFrame( page ).getByRole( 'heading', { name: 'Named slot orchestration' } );
+	const sourceHeadingNode = sourceHeading.locator( 'xpath=ancestor-or-self::*[@data-builder-node and @data-builder-type="heading"][1]' );
+	await expect( sourceHeadingNode ).toBeVisible();
+	const sourceHeadingId = await sourceHeadingNode.evaluate( ( element ) => element.getAttribute( 'data-builder-node' ) );
+	if ( !sourceHeadingId ) {
+		throw new Error( 'Unable to resolve the dense drag source heading id.' );
+	}
+	await sourceHeading.click( { force: true } );
 
 	const before = await readBuilderPerf( page );
 	await beginSelectedNodeGrabDragToTarget( page, targetContainer, { x: 0.52, y: 0.52 } );

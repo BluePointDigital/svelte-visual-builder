@@ -14,6 +14,27 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 
 - No unreleased changes documented yet.
 
+## [0.2.5] - 2026-04-30
+
+### Changed
+
+- Smoothed drag-and-drop targeting from the Elements panel into the canvas, with larger and more stable insertion hit zones.
+- Made `Container` and `Grid Container` palette drags use the same visible before/after insertion bands as content elements when dropping between existing children.
+- Improved empty-container and container-interior affordances so users can intentionally drop inside a container without pixel-perfect aiming.
+- Added selective `@dnd-kit/svelte` droppable registration for stable canvas, slot, empty-container, and navigator regions while keeping the custom resolver as the final semantic authority.
+- Improved palette tile drag start reliability and kept click-to-insert behavior intact.
+- Clarified inside-vs-before-vs-after visual feedback so the highlighted target matches the actual resolved drop intent.
+
+### Fixed
+
+- Fixed new `Container` drops over filled containers being promoted above/outside the target instead of landing inside or between children.
+- Fixed layout-node drag commits so explicit `into`, `before`, and `after` targets are respected by the core engine.
+
+### Tests
+
+- Added unit coverage for forgiving insertion zones, empty-container drops, container edge drops, target stability, and layout-node drag commits.
+- Added Playwright coverage for palette drag overlays, click-to-insert preservation, dropping into filled containers, and using insertion bands with `Container` palette items.
+
 ## [0.2.0] - 2026-04-29
 
 ### Added
@@ -30,4 +51,3 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 ### Notes
 
 - The serialized Builder schema/package constants remain at `2.0.0`; those describe project JSON compatibility, not the workspace npm package version.
-

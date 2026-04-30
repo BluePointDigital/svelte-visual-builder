@@ -76,6 +76,7 @@
 	import { getActiveDocument, getCanvasGeometryKey, resolveBuilderInlineEditingMode } from '@builder/core';
 	import EditorShellIcon from './components/EditorShellIcon.svelte';
 	import InlineRichTextEditor from './components/LazyInlineRichTextEditor.svelte';
+	import PreviewDroppableRegion from './components/PreviewDroppableRegion.svelte';
 	import { createBuilderDndData } from './drag-drop';
 	import { createAnchorController } from './anchor-controller';
 	import { normalizeInlineEditingPlainText, serializeInlineEditingValue } from './inline-editing';
@@ -117,6 +118,13 @@
 		action?: 'open-master';
 	}
 
+	interface CoarseDropRegion {
+		id: string;
+		target: DropTarget;
+		priority: 'root' | 'slot' | 'container';
+		style: string;
+	}
+
 	let previewShell: HTMLDivElement | undefined;
 	let frameShell: HTMLDivElement | undefined;
 	let previewHostController: PreviewHostController | undefined;
@@ -152,6 +160,7 @@
 	let previewLoading = true;
 	let contextBanner: PreviewContextBanner | undefined;
 	let dropTarget: DropTarget | undefined;
+	let coarseDropRegions: CoarseDropRegion[] = [];
 	let dropTargetAxis: 'x' | 'y' | undefined;
 	let dropTargetIndicatorStyle = '';
 	let dropTargetHighlightStyle = '';
@@ -204,6 +213,7 @@
 	const INLINE_COMMIT_DELAY = 180;
 
 	$: dropTarget = state.ui.dropTarget;
+	$: coarseDropRegions = createCoarseDropRegions( state );
 	$: dropTargetAxis = resolveDropIndicatorAxis( dropTarget );
 	$: dropTargetIndicatorStyle = getDropIndicatorStyle( dropTarget, dropTargetAxis );
 	$: dropTargetHighlightStyle = getDropTargetHighlightStyle( dropTarget, dropTargetAxis );
@@ -976,6 +986,77 @@
 		return resolveDropIndicatorAxisFromBounds( target.rect, [] );
 	}
 
+	function createCoarseDropRegions( latestState: BuilderEngineState ): CoarseDropRegion[] {
+		if ( !latestState.ui.dragSession || latestState.ui.dragSession.kind !== 'create' ) {
+			return [];
+		}
+
+		const canvasIndex = latestState.ui.canvas.index;
+		const regions: CoarseDropRegion[] = [];
+		const addRegion = ( id: string, target: DropTarget, priority: CoarseDropRegion['priority'] ) => {
+			regions.push( {
+				id,
+				target,
+				priority,
+				style: `${ rectToPreviewStyle( target.rect ) }pointer-events:auto;`,
+			} );
+		};
+
+		for ( const slot of canvasIndex.rootSlotsByDocument.get( previewDocument.id ) ?? [] ) {
+			addRegion(
+				`root:${ slot.documentId }:${ slot.slot ?? 'default' }`,
+				{
+					documentId: slot.documentId,
+					parentId: slot.ownerId,
+					slot: slot.slot,
+					index: slot.childNodeIds.length,
+					placement: 'root',
+					rect: slot.rect,
+				},
+				'root',
+			);
+		}
+
+		for ( const slot of canvasIndex.nonRootSlotsByDocument.get( previewDocument.id ) ?? [] ) {
+			addRegion(
+				`slot:${ slot.documentId }:${ slot.ownerId ?? 'root' }:${ slot.slot ?? 'default' }`,
+				{
+					documentId: slot.documentId,
+					parentId: slot.ownerId,
+					slot: slot.slot,
+					index: slot.childNodeIds.length,
+					placement: 'into',
+					targetNodeId: slot.ownerId,
+					rect: slot.rect,
+				},
+				'slot',
+			);
+		}
+
+		for ( const container of canvasIndex.containersByDocument.get( previewDocument.id ) ?? [] ) {
+			const childBounds = canvasIndex.childBoundsByContainer.get( getCanvasGeometryKey( container.documentId, container.nodeId, undefined ) ) ?? [];
+			if ( childBounds.length > 0 ) {
+				continue;
+			}
+
+			addRegion(
+				`container:${ container.documentId }:${ container.nodeId }`,
+				{
+					documentId: container.documentId,
+					parentId: container.nodeId,
+					slot: undefined,
+					index: 0,
+					placement: 'into',
+					targetNodeId: container.nodeId,
+					rect: container.rect,
+				},
+				'container',
+			);
+		}
+
+		return regions;
+	}
+
 	function resolveDropIndicatorAxisFromBounds( rect: BuilderRect, childBounds: NodeBounds[] ): 'x' | 'y' {
 		if ( childBounds.length > 1 ) {
 			const first = childBounds[ 0 ];
@@ -1550,6 +1631,17 @@
 							</div>
 						{/if}
 						<div class:dragging={Boolean( state.ui.dragSession )} class="builder-preview__overlay">
+							{#if state.ui.dragSession}
+								{#each coarseDropRegions as region (region.id)}
+									<PreviewDroppableRegion
+										id={region.id}
+										target={region.target}
+										priority={region.priority}
+										style={region.style}
+									/>
+								{/each}
+							{/if}
+
 							{#if hoveredBounds && hoveredBounds.nodeId !== state.ui.selectedNodeIds[0]}
 								<div bind:this={hoverOverlayElement} class="builder-preview__hover" style={rectToPreviewStyle( hoveredBounds.rect )}>
 									<div bind:this={hoverRailElement} class="builder-preview__action-rail builder-preview__action-rail--hover">
@@ -2242,6 +2334,7 @@
 
 	.builder-preview__selection,
 	.builder-preview__hover,
+	.builder-preview__coarse-droppable,
 	.builder-preview__layout-overlay,
 	.builder-preview__drop-target-highlight,
 	.builder-preview__drop-target-handle,
@@ -2249,6 +2342,17 @@
 		position: absolute;
 		border-radius: 0.9rem;
 		pointer-events: none;
+	}
+
+	.builder-preview__coarse-droppable {
+		z-index: 31;
+		border-radius: 0.9rem;
+		background: transparent;
+	}
+
+	.builder-preview__coarse-droppable.active {
+		background: rgba( 208, 4, 212, 0.04 );
+		box-shadow: inset 0 0 0 1px rgba( 208, 4, 212, 0.16 );
 	}
 
 	.builder-preview__selection {
@@ -2422,6 +2526,15 @@
 		border-radius: 999px;
 	}
 
+	.builder-preview__drop-target[data-drop-placement='into'],
+	.builder-preview__drop-target[data-drop-placement='root'] {
+		border-style: dashed;
+		border-width: 2px;
+		background:
+			linear-gradient( 135deg, rgba( 208, 4, 212, 0.12 ) 0 10px, rgba( 208, 4, 212, 0.06 ) 10px 20px );
+		box-shadow: inset 0 0 0 2px rgba( 255, 255, 255, 0.5 ), 0 0 0 5px rgba( 208, 4, 212, 0.08 );
+	}
+
 	.builder-preview__drop-target-handle {
 		position: absolute;
 		border-radius: 999px;
@@ -2474,6 +2587,8 @@
 		color: inherit;
 		font: inherit;
 		cursor: pointer;
+		touch-action: none;
+		user-select: none;
 	}
 
 	.builder-preview__action-rail button:hover,

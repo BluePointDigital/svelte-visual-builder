@@ -43,6 +43,10 @@
 
 	function handlePointerDown( event: PointerEvent ) {
 		if ( useDnd ) {
+			const button = event.currentTarget;
+			if ( button instanceof HTMLButtonElement ) {
+				button.focus();
+			}
 			return;
 		}
 
@@ -53,6 +57,8 @@
 <button
 	type="button"
 	class="elements-panel__tile"
+	class:armed={draggable.isDragSource && !draggable.isDragging}
+	class:dragging={draggable.isDragging}
 	disabled={tile.disabled}
 	draggable={!useDnd && tile.draggable !== false}
 	title={tile.title ?? tile.description ?? tile.label}
@@ -108,6 +114,15 @@
 		overflow: hidden;
 		color: inherit;
 		cursor: pointer;
+		touch-action: none;
+		user-select: none;
+	}
+
+	.elements-panel__tile.armed,
+	.elements-panel__tile.dragging {
+		border-color: rgba( 208, 4, 212, 0.55 );
+		background: rgba( 208, 4, 212, 0.1 );
+		box-shadow: inset 0 0 0 1px rgba( 208, 4, 212, 0.14 );
 	}
 
 	.elements-panel__tile:hover:not(:disabled) {

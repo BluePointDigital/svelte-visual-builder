@@ -10,6 +10,12 @@ export interface BuilderDndData {
 	descriptor: BuilderDragDescriptor;
 }
 
+export interface BuilderDroppableData {
+	kind: 'builder-droppable';
+	target: DropTarget;
+	priority: 'root' | 'slot' | 'container';
+}
+
 export function createBuilderDndData(
 	label: string,
 	descriptor: BuilderDragDescriptor,
@@ -18,6 +24,17 @@ export function createBuilderDndData(
 		kind: 'builder',
 		label,
 		descriptor,
+	};
+}
+
+export function createBuilderDroppableData(
+	target: DropTarget,
+	priority: BuilderDroppableData['priority'],
+): BuilderDroppableData {
+	return {
+		kind: 'builder-droppable',
+		target,
+		priority,
 	};
 }
 
@@ -30,6 +47,17 @@ export function isBuilderDndData( value: unknown ): value is BuilderDndData {
 	return candidate.kind === 'builder'
 		&& typeof candidate.label === 'string'
 		&& Boolean( candidate.descriptor && typeof candidate.descriptor === 'object' );
+}
+
+export function isBuilderDroppableData( value: unknown ): value is BuilderDroppableData {
+	if ( !value || typeof value !== 'object' ) {
+		return false;
+	}
+
+	const candidate = value as Partial<BuilderDroppableData>;
+	return candidate.kind === 'builder-droppable'
+		&& Boolean( candidate.target && typeof candidate.target === 'object' )
+		&& ( candidate.priority === 'root' || candidate.priority === 'slot' || candidate.priority === 'container' );
 }
 
 export function resolveClientPoint( nativeEvent?: Event ) {
@@ -137,15 +165,17 @@ export function resolveEditorDragLocation(
 	clientX: number,
 	clientY: number,
 	frame: HTMLElement | null | undefined,
+	coarseDropTarget?: DropTarget,
 ): { pointer: BuilderTransientDragPointer; dropTarget?: DropTarget } {
 	const pointer = resolvePreviewPointerFromClientPoint( clientX, clientY, frame );
+	const resolvedDropTarget = pointer.inside
+		? resolveCanvasDropTarget( state, {
+			x: pointer.clientX ?? clientX,
+			y: pointer.clientY ?? clientY,
+		} )
+		: resolveNavigatorDropTargetFromPoint( state, clientX, clientY );
 	return {
 		pointer,
-		dropTarget: pointer.inside
-			? resolveCanvasDropTarget( state, {
-				x: pointer.clientX ?? clientX,
-				y: pointer.clientY ?? clientY,
-			} )
-			: resolveNavigatorDropTargetFromPoint( state, clientX, clientY ),
+		dropTarget: resolvedDropTarget ?? coarseDropTarget,
 	};
 }

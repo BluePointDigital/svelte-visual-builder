@@ -6,7 +6,7 @@ import { createBuilderEditor } from '../src/lib/editor';
 import { resolveCanvasDropTarget } from '../src/lib/canvas';
 
 describe( 'canvas drop targeting', () => {
-	it( 'prefers the root document slot when adding a new top-level container over an existing root container', () => {
+	it( 'targets the container interior when adding a container over the middle of an existing root container', () => {
 		const document = createEmptyDocument( 'page', 'Home', 'home' );
 		document.root = [
 			createNode( {
@@ -88,9 +88,9 @@ describe( 'canvas drop targeting', () => {
 
 		expect( target ).toMatchObject( {
 			documentId: document.id,
-			parentId: undefined,
+			parentId: 'root-container',
 			index: 1,
-			placement: 'after',
+			placement: 'into',
 			targetNodeId: 'root-container',
 		} );
 	} );
@@ -182,9 +182,9 @@ describe( 'canvas drop targeting', () => {
 
 		expect( target ).toMatchObject( {
 			documentId: document.id,
-			parentId: undefined,
+			parentId: 'root-container',
 			index: 1,
-			placement: 'after',
+			placement: 'into',
 			targetNodeId: 'root-container',
 		} );
 	} );
@@ -276,9 +276,9 @@ describe( 'canvas drop targeting', () => {
 
 		expect( target ).toMatchObject( {
 			documentId: document.id,
-			parentId: undefined,
+			parentId: 'root-container',
 			index: 1,
-			placement: 'after',
+			placement: 'into',
 			targetNodeId: 'root-container',
 		} );
 	} );

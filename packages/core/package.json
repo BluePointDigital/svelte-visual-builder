@@ -1,6 +1,6 @@
 {
   "name": "@builder/core",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "type": "module",
   "dependencies": {
     "@builder/schema": "workspace:*"

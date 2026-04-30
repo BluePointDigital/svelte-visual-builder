@@ -1,13 +1,14 @@
 import type { BuilderEngineState, BuilderRect, DropTarget, NodeBounds, SlotBounds } from '@builder/core';
-import { getCanvasGeometryKey, getNodeLocation } from '@builder/core';
+import { getCanvasGeometryKey } from '@builder/core';
 
 import type { BuilderNode } from '@builder/schema';
 
 import { createDropIntent, createDropRuleContext, evaluateDropRule, type BuilderDragDescriptor } from './drop-rules';
 
-const MIN_INSERTION_ZONE_SIZE = 24;
-const MAX_INSERTION_ZONE_SIZE = 36;
-const CONTAINER_INTERIOR_BIAS_ZONE = 44;
+const MIN_INSERTION_ZONE_SIZE = 32;
+const MAX_INSERTION_ZONE_SIZE = 56;
+const CONTAINER_INTERIOR_BIAS_ZONE = 56;
+const STABLE_TARGET_PADDING = 8;
 
 export interface InteractionCoreFeatureState {
 	interactionCoreV3: boolean;
@@ -55,17 +56,9 @@ export function resolveInteractionCoreDropTarget(
 		descriptor,
 	);
 
-	if ( shouldPreferRootCanvasTarget( descriptor, rootTarget, explicitSlotTarget, document.root ) ) {
-		return rootTarget;
-	}
-
-	if ( explicitSlotTarget ) {
-		return explicitSlotTarget;
-	}
-
 	const sameContainerReorderTarget = resolveSameContainerReorderTarget( session, canvasIndex, pointer, document.root, descriptor );
 	if ( sameContainerReorderTarget ) {
-		return sameContainerReorderTarget;
+		return stabilizeDropTarget( state.ui.dropTarget, sameContainerReorderTarget, pointer );
 	}
 
 	const containerTarget = findFirstResolvedTarget(
@@ -77,19 +70,23 @@ export function resolveInteractionCoreDropTarget(
 		descriptor,
 	);
 
-	if ( shouldPreferRootCanvasTarget( descriptor, rootTarget, containerTarget, document.root ) ) {
-		return rootTarget;
+	if ( containerTarget?.indicatorRect ) {
+		return stabilizeDropTarget( state.ui.dropTarget, containerTarget, pointer );
+	}
+
+	if ( explicitSlotTarget ) {
+		return stabilizeDropTarget( state.ui.dropTarget, explicitSlotTarget, pointer );
 	}
 
 	if ( containerTarget ) {
-		return containerTarget;
+		return stabilizeDropTarget( state.ui.dropTarget, containerTarget, pointer );
 	}
 
 	if ( pointerInsideSameDragContainer( session, canvasIndex, pointer ) ) {
 		return undefined;
 	}
 
-	return rootTarget;
+	return stabilizeDropTarget( state.ui.dropTarget, rootTarget, pointer );
 }
 
 function resolveSameContainerReorderTarget(
@@ -263,49 +260,6 @@ function computeContainerDropTarget(
 	}
 
 	return indexedTarget;
-}
-
-function shouldPreferRootCanvasTarget(
-	descriptor: BuilderDragDescriptor,
-	rootTarget: DropTarget | undefined,
-	competingTarget: DropTarget | undefined,
-	documentRoot: BuilderNode[],
-): rootTarget is DropTarget {
-	if ( !rootTarget || !competingTarget ) {
-		return false;
-	}
-
-	if ( descriptor.kind !== 'palette-item' || !isRootLevelLayoutBuilderElement( descriptor.elementType ) ) {
-		return false;
-	}
-
-	const targetContainerId = competingTarget.parentId;
-	if ( !targetContainerId ) {
-		return false;
-	}
-
-	const topLevelTargetNode = resolveTopLevelTargetNode( documentRoot, targetContainerId );
-	return Boolean( topLevelTargetNode && nodeHasChildContent( topLevelTargetNode ) );
-}
-
-function isRootLevelLayoutBuilderElement( elementType: string ) {
-	return elementType === 'container' || elementType === 'grid-container';
-}
-
-function nodeHasChildContent( node: BuilderNode ) {
-	if ( node.children.length > 0 ) {
-		return true;
-	}
-
-	return Object.values( node.slots as Record<string, BuilderNode[]> ).some( ( slotNodes ) => slotNodes.length > 0 );
-}
-
-function resolveTopLevelTargetNode( documentRoot: BuilderNode[], nodeId: string ) {
-	const location = getNodeLocation( documentRoot, nodeId );
-	const topLevelTargetId = location?.path[ 0 ];
-	return topLevelTargetId
-		? documentRoot.find( ( node ) => node.id === topLevelTargetId )
-		: undefined;
 }
 
 function resolveIndexedDropTarget( options: {
@@ -540,7 +494,7 @@ function resolveInsertionZoneSize( rect: BuilderRect, axis: 'x' | 'y' ) {
 
 function resolveInsertionZoneReach( childBounds: NodeBounds[], axis: 'x' | 'y' ) {
 	const averageSize = childBounds.reduce( ( total, child ) => total + ( axis === 'x' ? child.rect.width : child.rect.height ), 0 ) / Math.max( 1, childBounds.length );
-	return Math.max( MIN_INSERTION_ZONE_SIZE, Math.min( CONTAINER_INTERIOR_BIAS_ZONE, averageSize * 0.25 ) );
+	return Math.max( 24, Math.min( 32, averageSize * 0.25 ) );
 }
 
 function pointInRect( rect: BuilderRect, x: number, y: number ): boolean {
@@ -639,5 +593,36 @@ function shouldPreferContainerInteriorTarget(
 
 function resolveDropEdgeZone( rect: BuilderRect, axis: 'x' | 'y' ) {
 	const size = axis === 'x' ? rect.width : rect.height;
-	return Math.max( 16, Math.min( 32, size * 0.18 ) );
+	return Math.max( 24, Math.min( 44, size * 0.2 ) );
+}
+
+function stabilizeDropTarget(
+	currentTarget: DropTarget | undefined,
+	nextTarget: DropTarget | undefined,
+	pointer: { x: number; y: number },
+): DropTarget | undefined {
+	if ( !currentTarget || !nextTarget || !areDropTargetsSemanticallyEqual( currentTarget, nextTarget ) ) {
+		return nextTarget;
+	}
+
+	const stabilityRect = currentTarget.indicatorRect ?? currentTarget.rect;
+	return pointInExpandedRect( stabilityRect, pointer.x, pointer.y, STABLE_TARGET_PADDING )
+		? currentTarget
+		: nextTarget;
+}
+
+function areDropTargetsSemanticallyEqual( left: DropTarget, right: DropTarget ) {
+	return left.documentId === right.documentId
+		&& left.parentId === right.parentId
+		&& left.slot === right.slot
+		&& left.index === right.index
+		&& left.placement === right.placement
+		&& left.targetNodeId === right.targetNodeId;
+}
+
+function pointInExpandedRect( rect: BuilderRect, x: number, y: number, padding: number ): boolean {
+	return x >= rect.left - padding
+		&& x <= rect.right + padding
+		&& y >= rect.top - padding
+		&& y <= rect.bottom + padding;
 }

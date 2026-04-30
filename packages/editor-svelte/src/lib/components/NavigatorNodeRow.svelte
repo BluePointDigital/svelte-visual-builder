@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { createDraggable } from '@dnd-kit/svelte';
+	import { createDraggable, createDroppable } from '@dnd-kit/svelte';
 	import type { SvelteVirtualizer } from '@tanstack/svelte-virtual';
+	import type { DropTarget } from '@builder/core';
 	import type { BuilderNode } from '@builder/schema';
 
-	import { createBuilderDndData } from '../drag-drop';
+	import { createBuilderDndData, createBuilderDroppableData } from '../drag-drop';
 	import type { NavigatorNodeRow, NavigatorNodeRowActions } from '../navigator-model';
 	import EditorShellIcon from './EditorShellIcon.svelte';
 	import {
@@ -22,6 +23,7 @@
 	export let style = '';
 
 	let rowElement: HTMLLIElement | null = null;
+	let rowShellElement: HTMLDivElement | null = null;
 	let nodeLabel = '';
 	let nodeSubtitle = '';
 	let nodeIndicators: ReturnType<typeof getNavigatorNodeIndicators> = [];
@@ -40,6 +42,15 @@
 				nodeId: row.nodeId,
 				documentId,
 			} );
+		},
+	} );
+
+	const droppable = createDroppable( {
+		get id() {
+			return `navigator-drop:${ row.nodeId }`;
+		},
+		get data() {
+			return createBuilderDroppableData( createNavigatorDropTarget(), 'container' );
 		},
 	} );
 
@@ -76,6 +87,36 @@
 				virtualizer.measureElement( rowElement );
 			}
 		} );
+	}
+
+	function createNavigatorDropTarget(): DropTarget {
+		const rect = rowShellElement?.getBoundingClientRect();
+		const beforeRect = rect
+			? {
+				top: rect.top,
+				left: rect.left,
+				right: rect.right,
+				bottom: rect.bottom,
+				width: rect.width,
+				height: rect.height,
+			}
+			: {
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				width: 0,
+				height: 0,
+			};
+		return {
+			documentId,
+			parentId: row.parentId,
+			slot: row.slot,
+			index: row.index,
+			placement: 'before',
+			targetNodeId: row.nodeId,
+			rect: beforeRect,
+		};
 	}
 
 	function handleNodeKeydown( event: KeyboardEvent, node: BuilderNode ) {
@@ -129,6 +170,7 @@
 	onfocusout={scheduleMeasureRow}
 >
 	<div
+		bind:this={rowShellElement}
 		class="navigator__row-shell"
 		data-navigator-node={row.nodeId}
 		data-navigator-parent={row.parentId}
@@ -136,6 +178,7 @@
 		data-navigator-index={row.index}
 		role="group"
 		aria-label={`${nodeLabel} structure row`}
+		{@attach droppable.attach}
 		oncontextmenu={( event ) => actions.onOpenContextMenu( row.node, event, row.slot )}
 	>
 		<button
