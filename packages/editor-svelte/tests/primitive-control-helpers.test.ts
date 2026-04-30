@@ -47,6 +47,17 @@ describe( 'primitive control helpers', () => {
 		} );
 	} );
 
+	it( 'preserves explicit unlinked CSS box values even when all sides match', () => {
+		expect( normalizeDimensionsValue( '24px 24px 24px 24px', 'px' ) ).toEqual( {
+			top: '24',
+			right: '24',
+			bottom: '24',
+			left: '24',
+			unit: 'px',
+			linked: false,
+		} );
+	} );
+
 	it( 'recovers slider and dimensions values from legacy JSON string payloads', () => {
 		expect( normalizeSliderValue( '{"value":"16px","unit":"px"}', 'px' ) ).toEqual( {
 			value: '16',
@@ -92,6 +103,17 @@ describe( 'primitive control helpers', () => {
 			unit: 'px',
 			linked: false,
 		}, 'px' ) ).toBe( 'calc(100% - 10px) 24px' );
+	} );
+
+	it( 'serializes unlinked matching dimensions as explicit four-side CSS', () => {
+		expect( serializeDimensionsValue( {
+			top: '24',
+			right: '24',
+			bottom: '24',
+			left: '24',
+			unit: 'px',
+			linked: false,
+		}, 'px' ) ).toBe( '24px 24px 24px 24px' );
 	} );
 
 	it( 'normalizes CSS url() values for url primitives and serializes url/media primitives back to strings', () => {

@@ -14,6 +14,17 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 
 - No unreleased changes documented yet.
 
+## [0.2.6] - 2026-04-30
+
+### Fixed
+
+- Fixed margin and padding dimension controls so unlinking equal side values stays unlinked instead of immediately normalizing back into a linked CSS shorthand.
+- Preserved CSS-compatible storage for explicitly unlinked equal dimensions by serializing them as four-value box shorthand.
+
+### Tests
+
+- Added regression coverage for normalizing and serializing explicitly unlinked matching dimension values.
+
 ## [0.2.5] - 2026-04-30
 
 ### Changed

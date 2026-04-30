@@ -276,7 +276,8 @@ export function normalizeDimensionsValue( value: unknown, fallbackUnit = 'px' ):
 		};
 	}
 
-	const tokens = expandBoxTokens( splitCssShorthand( scalar ) );
+	const shorthandTokens = splitCssShorthand( scalar );
+	const tokens = expandBoxTokens( shorthandTokens );
 	const parsedTokens = tokens.map( parseMeasurementToken );
 	const sharedUnit = parsedTokens.length > 0 && parsedTokens.every( ( entry ) => entry.unit === parsedTokens[ 0 ]?.unit )
 		? parsedTokens[ 0 ]?.unit
@@ -288,7 +289,7 @@ export function normalizeDimensionsValue( value: unknown, fallbackUnit = 'px' ):
 		bottom: normalizeMeasurementInput( parsedTokens[ 2 ]?.raw ?? '', resolvedUnit ),
 		left: normalizeMeasurementInput( parsedTokens[ 3 ]?.raw ?? '', resolvedUnit ),
 		unit: resolvedUnit,
-		linked: areAllEqual( [
+		linked: shorthandTokens.length < 4 && areAllEqual( [
 			normalizeMeasurementInput( parsedTokens[ 0 ]?.raw ?? '', resolvedUnit ),
 			normalizeMeasurementInput( parsedTokens[ 1 ]?.raw ?? '', resolvedUnit ),
 			normalizeMeasurementInput( parsedTokens[ 2 ]?.raw ?? '', resolvedUnit ),
@@ -385,7 +386,7 @@ export function serializeDimensionsValue( value: PrimitiveDimensionsValue, fallb
 	}
 
 	if ( tokens.every( ( entry ) => entry === tokens[ 0 ] ) ) {
-		return tokens[ 0 ] ?? '';
+		return value.linked === false ? tokens.join( ' ' ) : tokens[ 0 ] ?? '';
 	}
 
 	if ( tokens[ 0 ] === tokens[ 2 ] && tokens[ 1 ] === tokens[ 3 ] ) {

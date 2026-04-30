@@ -1,6 +1,6 @@
 # Svelte Visual Builder
 
-Version 0.2.5
+Version 0.2.6
 
 A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svelte applications. It provides an Elementor-style editing experience while keeping persistence, media storage, auth, dynamic data, and AI provider settings owned by the host app.
 
@@ -18,6 +18,12 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
 ## Latest Changes
+
+### Version 0.2.6 - 2026-04-30
+
+- Fixed margin and padding dimension controls so unlinking equal side values stays unlinked instead of collapsing back into a linked shorthand.
+- Preserved valid CSS output by serializing explicitly unlinked equal sides as four-value box shorthand.
+- Added regression coverage for parsing and serializing unlinked matching dimension values.
 
 ### Version 0.2.5 - 2026-04-30
 
