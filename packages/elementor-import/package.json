@@ -1,6 +1,7 @@
 {
   "name": "@builder/elementor-import",
   "version": "0.2.8",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@builder/schema": "workspace:*"

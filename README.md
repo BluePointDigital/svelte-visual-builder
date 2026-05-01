@@ -4,6 +4,8 @@ Version 0.2.8
 
 A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svelte applications. It provides an Elementor-style editing experience while keeping persistence, media storage, auth, dynamic data, and AI provider settings owned by the host app.
 
+Svelte Visual Builder is open source under the [MIT License](LICENSE).
+
 ## Highlights
 
 - Visual drag-and-drop editor with canvas selection, action rails, structure navigator, inspector panels, undo/redo, copy/paste, and paste-style support.
@@ -18,6 +20,11 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
 ## Latest Changes
+
+### Unreleased
+
+- Added an MIT open source license and package metadata so GitHub and package consumers identify the project as MIT-licensed.
+- Scoped the runtime to `box-sizing: border-box` and tightened default image sizing so published grid/flex layouts match the editor more reliably.
 
 ### Version 0.2.8 - 2026-05-01
 

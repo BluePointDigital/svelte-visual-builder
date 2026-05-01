@@ -1,6 +1,7 @@
 {
   "name": "@builder/runtime-svelte",
   "version": "0.2.8",
+  "license": "MIT",
   "type": "module",
   "svelte": "./src/index.ts",
   "exports": {

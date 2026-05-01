@@ -56,6 +56,13 @@ export const BUILDER_RUNTIME_BASE_STYLES = `
 		position: relative;
 	}
 
+	.builder-runtime,
+	.builder-runtime *,
+	.builder-runtime *::before,
+	.builder-runtime *::after {
+		box-sizing: border-box;
+	}
+
 	.builder-runtime__slot {
 		display: grid;
 		gap: 0;
@@ -174,10 +181,13 @@ export const BUILDER_RUNTIME_BASE_STYLES = `
 	.builder-node--image {
 		display: block;
 		min-width: 0;
-		width: auto;
+		min-height: 0;
+		width: 100%;
 		max-width: 100%;
+		max-height: 100%;
 		height: auto;
 		box-sizing: border-box;
+		flex-shrink: 1;
 	}
 
 	.builder-node--video {

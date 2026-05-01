@@ -65,6 +65,15 @@ describe( 'runtime-svelte', () => {
 		expect( compileDocumentAssets( model ).stylesheet ).toContain( '.builder-class-class-1' );
 	} );
 
+	it( 'scopes border-box sizing to builder-rendered runtime content', () => {
+		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( `.builder-runtime,
+	.builder-runtime *,
+	.builder-runtime *::before,
+	.builder-runtime *::after {
+		box-sizing: border-box;
+	}` );
+	} );
+
 	it( 'emits element custom CSS and CSS custom properties', () => {
 		const document = createEmptyDocument( 'page', 'Home', 'home' );
 		const node = createNode( {
@@ -685,9 +694,13 @@ describe( 'runtime-svelte', () => {
 		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( '.builder-node--image {' );
 		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( '.builder-node--video {' );
 		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( '.builder-node--video > video {' );
+		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'width: 100%;' );
 		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'max-width: 100%;' );
+		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'max-height: 100%;' );
 		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'height: auto;' );
 		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'min-width: 0;' );
+		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'min-height: 0;' );
+		expect( BUILDER_RUNTIME_BASE_STYLES ).toContain( 'flex-shrink: 1;' );
 	} );
 
 	it( 'maps container layout defaults into real runtime CSS', () => {

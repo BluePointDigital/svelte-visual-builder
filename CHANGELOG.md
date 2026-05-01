@@ -12,7 +12,14 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 
 ## [Unreleased]
 
-- No unreleased changes documented yet.
+### Added
+
+- Added an MIT open source license and package manifest metadata for the workspace packages.
+
+### Fixed
+
+- Fixed published/runtime layout drift where padded `width: 100%` children could overflow grid or flex tracks by scoping `box-sizing: border-box` to builder-rendered runtime content.
+- Fixed standalone image nodes so default media sizing shrinks safely inside flex/grid containers instead of overflowing the selected parent.
 
 ## [0.2.8] - 2026-05-01
 

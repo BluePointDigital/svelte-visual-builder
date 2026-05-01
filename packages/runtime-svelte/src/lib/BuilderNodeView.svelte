@@ -1020,6 +1020,18 @@
 		text-decoration: none;
 	}
 
+	.builder-node--image {
+		display: block;
+		min-width: 0;
+		min-height: 0;
+		width: 100%;
+		max-width: 100%;
+		max-height: 100%;
+		height: auto;
+		box-sizing: border-box;
+		flex-shrink: 1;
+	}
+
 	.builder-node--icon-box {
 		display: flex;
 		flex-direction: var(--builder-icon-box-direction, column);

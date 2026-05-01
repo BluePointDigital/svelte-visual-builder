@@ -1,6 +1,7 @@
 {
   "name": "@builder/plugin-api",
   "version": "0.2.8",
+  "license": "MIT",
   "type": "module",
   "dependencies": {
     "@builder/core": "workspace:*",
