@@ -111,6 +111,21 @@ describe( 'inspector contract', () => {
 		expectInputOnlySlider( getAdvancedPrimitive( transform?.controls, 'perspective' ) );
 	} );
 
+	it( 'keeps layout gap relative CSS units available in the inspector', () => {
+		const registry = createDefaultBuilderRegistry();
+		const contentLayout = registry.elements.get( 'container' )?.contentSections.find( ( section ) => section.id === 'layout' );
+		const gapPrimitive = contentLayout?.fields.find( ( field ) => field.id === 'gap' )?.primitive;
+
+		expect( gapPrimitive?.kind ).toBe( 'slider' );
+		expect( gapPrimitive && 'units' in gapPrimitive ? gapPrimitive.units?.map( ( unit ) => unit.value ) : [] ).toEqual( [
+			'px',
+			'rem',
+			'em',
+			'%',
+			'vw',
+		] );
+	} );
+
 	it( 'exposes motion animations as a curated select control', () => {
 		const registry = createDefaultBuilderRegistry();
 		const motion = registry.elements.get( 'container' )?.advancedSections.find( ( section ) => section.id === 'motion-effects' );

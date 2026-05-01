@@ -59,6 +59,7 @@
 	import { createDraggable } from '@dnd-kit/svelte';
 	import { onMount } from 'svelte';
 	import { mount, unmount } from 'svelte';
+	import { writable } from 'svelte/store';
 
 	import type {
 		BuilderEngineState,
@@ -70,13 +71,14 @@
 		SlotBounds,
 	} from '@builder/core';
 	import type { BreakpointDefinition, BuilderDocument, BuilderNode } from '@builder/schema';
+	import type { BuilderRuntimeOptions } from '@builder/runtime-svelte';
 	import type { BuilderEditorController } from './editor';
-	import { BuilderRenderer } from '@builder/runtime-svelte';
 
 	import { getActiveDocument, getCanvasGeometryKey, resolveBuilderInlineEditingMode } from '@builder/core';
 	import EditorShellIcon from './components/EditorShellIcon.svelte';
 	import InlineRichTextEditor from './components/LazyInlineRichTextEditor.svelte';
 	import PreviewDroppableRegion from './components/PreviewDroppableRegion.svelte';
+	import PreviewRuntimeHost from './components/PreviewRuntimeHost.svelte';
 	import { createBuilderDndData } from './drag-drop';
 	import { createAnchorController } from './anchor-controller';
 	import { normalizeInlineEditingPlainText, serializeInlineEditingValue } from './inline-editing';
@@ -125,11 +127,19 @@
 		style: string;
 	}
 
+	type PreviewRuntimeOptions = BuilderRuntimeOptions & {
+		bridgeEvents?: boolean;
+		bridgeRenderVersion?: number;
+		onGeometrySnapshot?: ( snapshot: CanvasGeometrySnapshot ) => void;
+		onGeometryInvalidated?: ( reason: string, renderVersion: number ) => void;
+	};
+
 	let previewShell: HTMLDivElement | undefined;
 	let frameShell: HTMLDivElement | undefined;
 	let previewHostController: PreviewHostController | undefined;
 	let state: BuilderEngineState = editor.engine.getState();
 	let mountedRuntime: ReturnType<typeof mount> | undefined;
+	const runtimeOptions = writable<PreviewRuntimeOptions | undefined>( undefined );
 	let unsubscribe = () => {};
 	let previewBridgeCleanup = () => {};
 	let aiStandinElement: HTMLDivElement | undefined;
@@ -922,46 +932,46 @@
 		previewViewportHeight = mountTarget.clientHeight;
 		runtimeMeasurementVersion = Math.min( runtimeMeasurementVersion, nextRenderVersion - 1 );
 
-		if ( mountedRuntime ) {
-			unmount( mountedRuntime );
-			mountedRuntime = undefined;
+		if ( !mountedRuntime ) {
+			mountTarget.replaceChildren();
+			mountedRuntime = mount( PreviewRuntimeHost, {
+				target: mountTarget,
+				props: {
+					options: runtimeOptions,
+				},
+			} );
+			editor.incrementPerfCounter( 'previewMounts' );
 		}
 
-		mountTarget.replaceChildren();
-
-		mountedRuntime = mount( BuilderRenderer, {
-			target: mountTarget,
-			props: {
-				project: state.project,
-				activeDocumentId: state.ui.preview.documentId ?? state.activeDocumentId,
-				registry: editor.registry,
-				runtimeComponents: editor.runtimeComponents,
-				adapter: editor.adapter,
-				bindingContext: {
-					...editor.bindingContext,
-					query: new URLSearchParams( state.ui.preview.query ),
-				},
-				conditionContext: {
-					pathname: state.ui.preview.pathname,
-					query: new URLSearchParams( state.ui.preview.query ),
-				},
-				viewport: state.ui.viewport,
-				showPopups: state.ui.preview.showPopups,
-				authoringMode: !previewPresentationMode,
-				bridgeEvents: true,
-				bridgeRenderVersion: nextRenderVersion,
-				onGeometrySnapshot: ( snapshot ) => {
-					editor.incrementPerfCounter( 'geometrySnapshotsPosted' );
-					applyGeometrySnapshot( snapshot );
-				},
-				onGeometryInvalidated: ( reason, renderVersion ) => {
-					void reason;
-					void renderVersion;
-					editor.incrementPerfCounter( 'geometryInvalidations' );
-				},
+		runtimeOptions.set( {
+			project: state.project,
+			activeDocumentId: state.ui.preview.documentId ?? state.activeDocumentId,
+			registry: editor.registry,
+			runtimeComponents: editor.runtimeComponents,
+			adapter: editor.adapter,
+			bindingContext: {
+				...editor.bindingContext,
+				query: new URLSearchParams( state.ui.preview.query ),
+			},
+			conditionContext: {
+				pathname: state.ui.preview.pathname,
+				query: new URLSearchParams( state.ui.preview.query ),
+			},
+			viewport: state.ui.viewport,
+			showPopups: state.ui.preview.showPopups,
+			authoringMode: !previewPresentationMode,
+			bridgeEvents: true,
+			bridgeRenderVersion: nextRenderVersion,
+			onGeometrySnapshot: ( snapshot ) => {
+				editor.incrementPerfCounter( 'geometrySnapshotsPosted' );
+				applyGeometrySnapshot( snapshot );
+			},
+			onGeometryInvalidated: ( reason, renderVersion ) => {
+				void reason;
+				void renderVersion;
+				editor.incrementPerfCounter( 'geometryInvalidations' );
 			},
 		} );
-		editor.incrementPerfCounter( 'previewMounts' );
 		wirePreviewBridge();
 		editor.incrementPerfCounter( 'fullPreviewSyncs' );
 	}

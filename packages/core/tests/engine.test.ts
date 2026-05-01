@@ -102,6 +102,56 @@ describe( 'BuilderEngine', () => {
 		expect( engine.getState().history.past.at( -1 )?.label ).toBe( 'Paste style' );
 	} );
 
+	it( 'updates node properties with structural sharing for untouched branches', () => {
+		const page = createEmptyDocument( 'page', 'Home', 'home' );
+		page.root = [
+			createNode( {
+				id: 'root',
+				type: 'container',
+				children: [
+					createNode( {
+						id: 'left-branch',
+						type: 'container',
+						children: [
+							createNode( { id: 'target-heading', type: 'heading', props: { text: 'Before' } } ),
+						],
+					} ),
+					createNode( {
+						id: 'right-branch',
+						type: 'container',
+						children: [
+							createNode( { id: 'stable-copy', type: 'paragraph', props: { text: 'Keep me' } } ),
+						],
+					} ),
+				],
+			} ),
+		];
+		const engine = createBuilderEngine( createBuilderPackage( 'Demo', [ page ] ) );
+		const beforeDocument = engine.getState().project.documents[ 0 ];
+		const beforeDesignSystem = engine.getState().project.designSystem;
+		const beforeRoot = beforeDocument.root[ 0 ];
+		const beforeLeftBranch = beforeRoot.children[ 0 ];
+		const beforeRightBranch = beforeRoot.children[ 1 ];
+
+		engine.dispatch( {
+			type: 'document/elements/update',
+			nodeId: 'target-heading',
+			propsPatch: { text: 'After' },
+		} );
+
+		const afterDocument = engine.getState().project.documents[ 0 ];
+		const afterDesignSystem = engine.getState().project.designSystem;
+		const afterRoot = afterDocument.root[ 0 ];
+		const afterLeftBranch = afterRoot.children[ 0 ];
+		const afterRightBranch = afterRoot.children[ 1 ];
+		expect( afterDocument ).not.toBe( beforeDocument );
+		expect( afterRoot ).not.toBe( beforeRoot );
+		expect( afterLeftBranch ).not.toBe( beforeLeftBranch );
+		expect( afterLeftBranch.children[ 0 ].props.text ).toBe( 'After' );
+		expect( afterRightBranch ).toBe( beforeRightBranch );
+		expect( afterDesignSystem ).toBe( beforeDesignSystem );
+	} );
+
 	it( 'derives class usage counts on load and after style ref updates', () => {
 		const page = createEmptyDocument( 'page', 'Home', 'home' );
 		page.root = [

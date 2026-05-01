@@ -1102,6 +1102,8 @@ const motionAnimationOptions: BuilderControlOption[] = [
 ];
 const layoutUnits = [
 	{ label: 'PX', value: 'px', shortLabel: 'px' },
+	{ label: 'REM', value: 'rem', shortLabel: 'rem' },
+	{ label: 'EM', value: 'em', shortLabel: 'em' },
 	{ label: '%', value: '%', shortLabel: '%' },
 	{ label: 'VW', value: 'vw', shortLabel: 'vw' },
 ];

@@ -1599,8 +1599,10 @@ function applyUpdateNodeMutation(
 		return { state };
 	}
 
-	const nextDocument = withDocumentNodes( state.project, documentId, ( entry ) => updateNodeInDocument( entry, command.nodeId, command ) );
-	const nextState = updateStateAfterDocumentMutation( state, documentId, nextDocument, command.nodeId );
+	const nextDocument = updateNodeInDocument( document, command.nodeId, command );
+	const updatesStyleRefs = command.styleRefs !== undefined || command.patch?.styleRefs !== undefined;
+	const nextProject = replaceDocumentInProject( state.project, documentId, nextDocument, { updateClassUsage: updatesStyleRefs } );
+	const nextState = updateStateAfterDocumentMutation( state, documentId, nextProject, command.nodeId );
 
 	return {
 		state: nextState,
@@ -2376,6 +2378,21 @@ function withDocumentNodes(
 	}, project, [ documentId ] );
 }
 
+function replaceDocumentInProject(
+	project: BuilderPackage,
+	documentId: string,
+	nextDocument: BuilderDocument,
+	options: { updateClassUsage?: boolean } = {},
+): BuilderPackage {
+	const nextProject = {
+		...project,
+		documents: project.documents.map( ( document ) => document.id === documentId ? nextDocument : document ),
+	};
+	return options.updateClassUsage === false
+		? nextProject
+		: recalculateProjectDerivedState( nextProject, project, [ documentId ] );
+}
+
 function insertNodeIntoDocument( document: BuilderDocument, node: BuilderNode, parentId?: string, slot?: string, index?: number ): BuilderDocument {
 	if ( !parentId ) {
 		const nextRoot = [ ...document.root ];
@@ -2395,33 +2412,80 @@ function updateNodeInDocument(
 	nodeId: string,
 	command: Extract<BuilderMutationCommand, { type: 'document/elements/update' }>,
 ): BuilderDocument {
-	return BuilderDocumentSchema.parse( {
-		...document,
-		root: mapNodes( document.root, ( node ) => {
-			if ( node.id !== nodeId ) {
-				return node;
-			}
+	const nextRoot = updateNodeInCollection( document.root, nodeId, command );
+	if ( nextRoot === document.root ) {
+		return document;
+	}
 
-			const patch = command.patch ?? {};
-			return BuilderNodeSchema.parse( {
-				...node,
-				...patch,
-				props: {
-					...( ( patch.props && typeof patch.props === 'object' && !Array.isArray( patch.props ) ) ? patch.props as Record<string, JsonValue> : node.props ),
-					...command.propsPatch,
-				},
-				layout: {
-					...( ( patch.layout && typeof patch.layout === 'object' && !Array.isArray( patch.layout ) ) ? patch.layout as Record<string, JsonValue> : node.layout ),
-					...command.layoutPatch,
-				},
-				styles: mergeStyleSet( ( patch.styles as StyleSet | undefined ) ?? node.styles, command.stylesPatch ),
-				styleRefs: command.styleRefs ?? patch.styleRefs ?? node.styleRefs,
-				bindings: command.bindings ?? patch.bindings ?? node.bindings,
-				attributes: command.attributes ?? patch.attributes ?? node.attributes,
-				legacy: command.legacy === null ? undefined : command.legacy ?? patch.legacy ?? node.legacy,
-			} );
-		} ),
+	return {
+		...document,
+		root: nextRoot,
 		updatedAt: new Date().toISOString(),
+	};
+}
+
+function updateNodeInCollection(
+	nodes: BuilderNode[],
+	nodeId: string,
+	command: Extract<BuilderMutationCommand, { type: 'document/elements/update' }>,
+): BuilderNode[] {
+	for ( const [ index, node ] of nodes.entries() ) {
+		if ( node.id === nodeId ) {
+			const nextNodes = [ ...nodes ];
+			nextNodes[ index ] = updateSingleNode( node, command );
+			return nextNodes;
+		}
+
+		const nextChildren = updateNodeInCollection( node.children, nodeId, command );
+		if ( nextChildren !== node.children ) {
+			const nextNodes = [ ...nodes ];
+			nextNodes[ index ] = {
+				...node,
+				children: nextChildren,
+			};
+			return nextNodes;
+		}
+
+		for ( const [ slotName, slotNodes ] of Object.entries( node.slots as Record<string, BuilderNode[]> ) ) {
+			const nextSlotNodes = updateNodeInCollection( slotNodes, nodeId, command );
+			if ( nextSlotNodes !== slotNodes ) {
+				const nextNodes = [ ...nodes ];
+				nextNodes[ index ] = {
+					...node,
+					slots: {
+						...node.slots,
+						[ slotName ]: nextSlotNodes,
+					},
+				};
+				return nextNodes;
+			}
+		}
+	}
+
+	return nodes;
+}
+
+function updateSingleNode(
+	node: BuilderNode,
+	command: Extract<BuilderMutationCommand, { type: 'document/elements/update' }>,
+): BuilderNode {
+	const patch = command.patch ?? {};
+	return BuilderNodeSchema.parse( {
+		...node,
+		...patch,
+		props: {
+			...( ( patch.props && typeof patch.props === 'object' && !Array.isArray( patch.props ) ) ? patch.props as Record<string, JsonValue> : node.props ),
+			...command.propsPatch,
+		},
+		layout: {
+			...( ( patch.layout && typeof patch.layout === 'object' && !Array.isArray( patch.layout ) ) ? patch.layout as Record<string, JsonValue> : node.layout ),
+			...command.layoutPatch,
+		},
+		styles: mergeStyleSet( ( patch.styles as StyleSet | undefined ) ?? node.styles, command.stylesPatch ),
+		styleRefs: command.styleRefs ?? patch.styleRefs ?? node.styleRefs,
+		bindings: command.bindings ?? patch.bindings ?? node.bindings,
+		attributes: command.attributes ?? patch.attributes ?? node.attributes,
+		legacy: command.legacy === null ? undefined : command.legacy ?? patch.legacy ?? node.legacy,
 	} );
 }
 
