@@ -86,6 +86,7 @@
   let numberDraft = "";
   let numberDraftDirty = false;
   let dimensionsValue: PrimitiveDimensionsValue = {};
+  let dimensionsPlaceholderValue: PrimitiveDimensionsValue = {};
   let dimensionsDraftDirty = false;
   let urlValue: PrimitiveUrlValue = {};
   let urlDraftDirty = false;
@@ -240,6 +241,13 @@
       resolved.units[0]?.value ?? "px",
     );
   }
+  $: dimensionsPlaceholderValue =
+    resolved.kind === "dimensions"
+      ? normalizeDimensionsValue(
+          resolved.placeholder || placeholder,
+          resolved.units[0]?.value ?? "px",
+        )
+      : {};
   $: if (resolved.kind === "url" && !urlDraftDirty) {
     urlValue = normalizeUrlValue(value);
   }
@@ -1028,6 +1036,7 @@
                 type="text"
                 {disabled}
                 value={dimensionsValue.top ?? ""}
+                placeholder={dimensionsPlaceholderValue.top ?? ""}
                 oninput={(event) =>
                   updateDimensions({
                     top: (event.currentTarget as HTMLInputElement).value,
@@ -1043,6 +1052,7 @@
                 type="text"
                 {disabled}
                 value={dimensionsValue.right ?? ""}
+                placeholder={dimensionsPlaceholderValue.right ?? ""}
                 oninput={(event) =>
                   updateDimensions({
                     right: (event.currentTarget as HTMLInputElement).value,
@@ -1058,6 +1068,7 @@
                 type="text"
                 {disabled}
                 value={dimensionsValue.bottom ?? ""}
+                placeholder={dimensionsPlaceholderValue.bottom ?? ""}
                 oninput={(event) =>
                   updateDimensions({
                     bottom: (event.currentTarget as HTMLInputElement).value,
@@ -1073,6 +1084,7 @@
                 type="text"
                 {disabled}
                 value={dimensionsValue.left ?? ""}
+                placeholder={dimensionsPlaceholderValue.left ?? ""}
                 oninput={(event) =>
                   updateDimensions({
                     left: (event.currentTarget as HTMLInputElement).value,
@@ -1840,6 +1852,12 @@
 
   .primitive-control__placeholder {
     color: var(--builder-shell-text-muted, #687385);
+  }
+
+  .primitive-control__text::placeholder,
+  .primitive-control__dimensions-grid input::placeholder {
+    color: var(--builder-shell-text-muted, #687385);
+    opacity: 0.7;
   }
 
   .primitive-control__choices {

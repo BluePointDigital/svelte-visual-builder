@@ -63,7 +63,7 @@
 		position: relative;
 		display: grid;
 		gap: 0.15rem;
-		padding-left: calc( (var(--depth) - 1) * 0.8rem );
+		padding-left: calc( (var(--depth) - 1) * 0.55rem );
 		border-bottom: 1px solid rgba(191, 202, 219, 0.36);
 	}
 
@@ -76,7 +76,7 @@
 		position: absolute;
 		top: 0;
 		bottom: -0.25rem;
-		left: calc( (var(--depth) - 1) * 0.8rem + 0.26rem );
+		left: calc( (var(--depth) - 1) * 0.55rem + 0.2rem );
 		width: 1px;
 		background: linear-gradient(180deg, rgba(191, 202, 219, 0.72), rgba(191, 202, 219, 0));
 		pointer-events: none;
@@ -91,7 +91,7 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.4rem;
-		padding-left: 14px;
+		padding-left: 8px;
 	}
 
 	.navigator__slot-label {

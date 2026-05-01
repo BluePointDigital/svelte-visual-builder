@@ -37,6 +37,7 @@ export interface BuilderRuntimeOptions {
 	viewport?: string;
 	reducedMotion?: boolean;
 	showPopups?: boolean;
+	authoringMode?: boolean;
 	media?: BuilderRuntimeMediaAdapter;
 	cssIsolation?: BuilderRuntimeCssIsolationOptions;
 	runtimeComponents?: BuilderRuntimeComponentMap;
@@ -96,6 +97,7 @@ export interface BuilderRenderModel {
 	viewport: string;
 	reducedMotion: boolean;
 	showPopups: boolean;
+	authoringMode: boolean;
 	media?: BuilderRuntimeMediaAdapter;
 	cssIsolation?: BuilderRuntimeCssIsolationOptions;
 	runtimeComponents: BuilderRuntimeComponentMap;
@@ -217,6 +219,7 @@ export function renderResolvedDocument( options: BuilderRuntimeOptions ): Builde
 	const viewport = options.viewport ?? 'desktop';
 	const reducedMotion = options.reducedMotion ?? false;
 	const showPopups = options.showPopups ?? false;
+	const authoringMode = options.authoringMode ?? false;
 	const runtimeComponents = options.runtimeComponents ?? emptyRuntimeComponentMap;
 	const componentsById = getComponentsById( options.project );
 	const composition = resolveComposition( {
@@ -238,6 +241,7 @@ export function renderResolvedDocument( options: BuilderRuntimeOptions ): Builde
 		viewport,
 		reducedMotion,
 		showPopups,
+		authoringMode,
 		media: options.media,
 		cssIsolation: options.cssIsolation,
 		runtimeComponents,
@@ -252,6 +256,7 @@ export function renderResolvedDocument( options: BuilderRuntimeOptions ): Builde
 			viewport,
 			reducedMotion,
 			showPopups,
+			authoringMode,
 			media: options.media,
 			cssIsolation: options.cssIsolation,
 			runtimeComponents,

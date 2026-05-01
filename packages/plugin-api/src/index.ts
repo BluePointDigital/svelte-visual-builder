@@ -1087,6 +1087,19 @@ const timeUnits = [
 	{ label: 'MS', value: 'ms', shortLabel: 'ms' },
 	{ label: 'S', value: 's', shortLabel: 's' },
 ];
+const motionAnimationOptions: BuilderControlOption[] = [
+	{ label: 'None', value: 'none' },
+	{ label: 'Fade In', value: 'builder-fade-in' },
+	{ label: 'Fade Up', value: 'builder-fade-up' },
+	{ label: 'Fade Down', value: 'builder-fade-down' },
+	{ label: 'Slide In Up', value: 'builder-slide-in-up' },
+	{ label: 'Slide In Down', value: 'builder-slide-in-down' },
+	{ label: 'Slide In Left', value: 'builder-slide-in-left' },
+	{ label: 'Slide In Right', value: 'builder-slide-in-right' },
+	{ label: 'Zoom In', value: 'builder-zoom-in' },
+	{ label: 'Zoom Out', value: 'builder-zoom-out' },
+	{ label: 'Pop In', value: 'builder-pop-in' },
+];
 const layoutUnits = [
 	{ label: 'PX', value: 'px', shortLabel: 'px' },
 	{ label: '%', value: '%', shortLabel: '%' },
@@ -1263,6 +1276,7 @@ function inferStyleControlPrimitive(
 	if ( isSliderStyleControl( key, label ) ) {
 		const slider = inferSliderConfig( key, label );
 		const compactTypographySlider = isCompactTypographySliderControl( key, label );
+		const compactInputSlider = isCompactInputSliderControl( key, label );
 		return createSliderPrimitive( {
 			min: slider.min,
 			max: slider.max,
@@ -1271,7 +1285,7 @@ function inferStyleControlPrimitive(
 			defaultUnit: slider.defaultUnit,
 			showUnit: slider.units.length > 0,
 			showInput: true,
-			showRange: !compactTypographySlider,
+			showRange: !compactTypographySlider && !compactInputSlider,
 			showReset: true,
 			responsive: overrides.responsive,
 			stateful: overrides.stateful,
@@ -1304,6 +1318,22 @@ function isSliderStyleControl( key: string, label: string ): boolean {
 function isCompactTypographySliderControl( key: string, label: string ): boolean {
 	const signature = `${ normalizeStyleControlKey( key ) } ${ label }`.toLowerCase();
 	return /font-size|line-height|letter-spacing|word-spacing/.test( signature );
+}
+
+function isCompactInputSliderControl( key: string, label: string ): boolean {
+	const normalizedKey = normalizeStyleControlKey( key );
+	const signature = `${ normalizedKey } ${ label }`.toLowerCase();
+	return [
+		'gap',
+		'width',
+		'max-width',
+		'min-height',
+		'order',
+		'transition-duration',
+		'animation-duration',
+		'perspective',
+	].includes( normalizedKey )
+		|| /(^|[\s-])gap\b|(^|[\s-])width\b|max-width|min-height|(^|[\s-])order\b|transition-duration|animation-duration|perspective/.test( signature );
 }
 
 function isChooseStyleControl(
@@ -1747,8 +1777,25 @@ function backgroundControls(): BuilderStylePropertyDefinition[] {
 	return sectionControls(
 		styleProperty( 'background-color', 'Color', 'text', undefined, { responsive: true, stateful: true, tokenAware: true } ),
 		styleProperty( 'background-image', 'Image', 'url', undefined, { responsive: true, stateful: true, placeholder: 'https://example.com/image.jpg' } ),
-		styleProperty( 'background-position', 'Position', 'text', undefined, { responsive: true, stateful: true, placeholder: 'center center' } ),
-		styleProperty( 'background-size', 'Size', 'text', undefined, { responsive: true, stateful: true, placeholder: 'cover' } ),
+		styleProperty( 'background-position', 'Position', 'select', [
+			{ label: 'Center Center', value: 'center center' },
+			{ label: 'Center Top', value: 'center top' },
+			{ label: 'Center Bottom', value: 'center bottom' },
+			{ label: 'Left Top', value: 'left top' },
+			{ label: 'Left Center', value: 'left center' },
+			{ label: 'Left Bottom', value: 'left bottom' },
+			{ label: 'Right Top', value: 'right top' },
+			{ label: 'Right Center', value: 'right center' },
+			{ label: 'Right Bottom', value: 'right bottom' },
+		], { responsive: true, stateful: true, placeholder: 'center center' } ),
+		styleProperty( 'background-size', 'Size', 'select', [
+			{ label: 'Cover', value: 'cover' },
+			{ label: 'Contain', value: 'contain' },
+			{ label: 'Auto', value: 'auto' },
+			{ label: '100% Auto', value: '100% auto' },
+			{ label: 'Auto 100%', value: 'auto 100%' },
+			{ label: '100% 100%', value: '100% 100%' },
+		], { responsive: true, stateful: true, placeholder: 'cover' } ),
 		styleProperty( 'background-repeat', 'Repeat', 'select', [
 			{ label: 'No Repeat', value: 'no-repeat' },
 			{ label: 'Repeat', value: 'repeat' },
@@ -2062,7 +2109,7 @@ function positioningControls(): BuilderStylePropertyDefinition[] {
 function motionControls(): BuilderStylePropertyDefinition[] {
 	return sectionControls(
 		styleProperty( 'transition-duration', 'Transition Duration', 'text', undefined, { responsive: true, placeholder: '300ms' } ),
-		styleProperty( 'animation-name', 'Animation', 'text', undefined, { responsive: true } ),
+		styleProperty( 'animation-name', 'Animation', 'select', motionAnimationOptions, { responsive: true, placeholder: 'None' } ),
 		styleProperty( 'animation-duration', 'Animation Duration', 'text', undefined, { responsive: true, placeholder: '800ms' } ),
 		styleProperty( 'animation-timing-function', 'Animation Timing', 'text', undefined, { responsive: true } ),
 	);

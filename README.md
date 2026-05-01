@@ -28,7 +28,14 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Added Border Radius controls for `Container` and `Grid Container`.
 - Tightened container Sizing & Overflow controls by replacing range sliders with compact value/unit inputs.
 - Tightened Position & Layer controls with one grouped Offset control for Top, Right, Bottom, and Left plus compact slider-free Z-Index editing.
+- Removed remaining low-value numeric sliders from Gap, Width, Max Width, Min Height, Order, transition/animation duration, and Perspective controls.
+- Added dropdown controls for animation presets plus background position and background size.
+- Added muted placeholders for inherited/default margin and padding values so empty spacing inputs still communicate the effective canvas value.
+- Improved responsive visibility controls with inline desktop/tablet/mobile toggles and authoring-mode hidden nodes that stay selectable while preview/live output hides them.
+- Tightened the Structure navigator indentation by removing redundant element abbreviation badges.
+- Replaced the reference studio seed with the full exported open-source homepage fixture and updated the demo header/CTA links for GitHub and docs.
 - Fixed dark-panel loading states, white gutters, shell tab drift, and select/dropdown readability.
+- Fixed collapsed preview mode so hidden nodes and empty "Drop items" placeholders do not appear, and removed default runtime gaps between header, page, and footer slots.
 
 ### Version 0.2.7 - 2026-04-30
 
@@ -111,6 +118,8 @@ packages/
   elementor-import     Elementor JSON conversion
   adapter-sveltekit    SvelteKit integration helpers
 ```
+
+The reference studio ships with an open-source homepage fixture at `apps/reference-studio/src/lib/server/fixtures/deepseek-homepage.builder.json`, wired as the default `/` page in the demo seed.
 
 ## Getting Started
 

@@ -22,6 +22,8 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 - Added a collapsed-sidebar preview mode that expands the canvas and suppresses editor selection chrome while keeping preview links disabled to avoid accidental navigation.
 - Added a dedicated full-workspace management view for the Menu shell area so Documents, Site Editor, Preview Presets, Assignments, Components, and Import Diagnostics have room to render.
 - Added Border Radius controls for `Container` and `Grid Container` style panels.
+- Added the full exported open-source homepage as the reference studio default shipping/demo page fixture.
+- Added dropdown-backed animation, background position, and background size controls for faster inspector selection.
 
 ### Changed
 
@@ -29,6 +31,9 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 - Moved the commonly used Elements entry to the left-panel header and removed redundant shell/navigation icons from crowded header and footer regions.
 - Tightened container Sizing & Overflow controls by replacing large range sliders with compact value/unit inputs.
 - Tightened Position & Layer controls by grouping Top, Right, Bottom, and Left into a single side-by-side Offset control and removing range sliders.
+- Removed remaining low-value numeric range sliders from Gap, Width, Max Width, Min Height, Order, Transition Duration, Animation Duration, and Perspective controls.
+- Tightened Responsive Visibility into inline desktop/tablet/mobile toggles and condensed the Structure navigator indentation by removing redundant type badges.
+- Updated the reference studio default header and homepage CTAs for the open-source project, including GitHub and docs links.
 - Improved responsive/sidebar layout behavior so collapsed preview mode uses the available canvas area instead of leaving an empty sidebar gutter.
 
 ### Fixed
@@ -36,10 +41,16 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 - Fixed light/white padded gutters and unreadable loading cards that appeared inside dark shell panels.
 - Fixed shell tab and panel state mismatches that could leave Globals or management content visible after returning to node editing.
 - Fixed dark select/dropdown readability in updated settings and inspector controls.
+- Fixed preview mode so hidden nodes and empty "Drop items" container placeholders are suppressed for a true front-end preview.
+- Fixed hidden nodes in authoring mode so they remain selectable while appearing visibly muted instead of disappearing from the canvas.
+- Fixed default/effective spacing values by showing inherited margin and padding defaults as muted placeholders in empty inputs.
+- Fixed root runtime slot spacing so assigned header, page, and footer documents can render seamlessly when their own styles do not add gaps.
 
 ### Tests
 
 - Added inspector contract coverage for container Border Radius controls, compact sizing inputs, and grouped slider-free positioning offsets.
+- Added inspector contract coverage for slider-free controls plus animation/background dropdown metadata.
+- Added runtime coverage for authoring-mode hidden node rendering.
 
 ## [0.2.7] - 2026-04-30
 

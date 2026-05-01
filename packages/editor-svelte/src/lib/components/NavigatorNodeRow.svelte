@@ -7,12 +7,11 @@
 	import { createBuilderDndData, createBuilderDroppableData } from '../drag-drop';
 	import type { NavigatorNodeRow, NavigatorNodeRowActions } from '../navigator-model';
 	import EditorShellIcon from './EditorShellIcon.svelte';
-	import {
-		getNavigatorNodeBadge,
-		getNavigatorNodeIndicators,
-		getNavigatorNodeLabel,
-		getNavigatorNodeSubtitle,
-	} from '../navigator-model';
+import {
+	getNavigatorNodeIndicators,
+	getNavigatorNodeLabel,
+	getNavigatorNodeSubtitle,
+} from '../navigator-model';
 
 	export let row: NavigatorNodeRow;
 	export let selectedNodeIds: string[] = [];
@@ -189,7 +188,6 @@
 			onkeydown={( event ) => handleNodeKeydown( event, row.node )}
 		>
 			<span class="navigator__row-main">
-				<span class="navigator__row-icon">{getNavigatorNodeBadge( row.node.type )}</span>
 				<span class="navigator__row-copy">
 					<span class="navigator__row-title">{nodeLabel}</span>
 					<span class="navigator__row-subtitle" title={row.node.id}>{nodeSubtitle}</span>
@@ -266,7 +264,7 @@
 		position: relative;
 		display: grid;
 		gap: 0.15rem;
-		padding-left: calc( (var(--depth) - 1) * 0.8rem );
+		padding-left: calc( (var(--depth) - 1) * 0.55rem );
 		border-bottom: 1px solid rgba(191, 202, 219, 0.28);
 	}
 
@@ -279,7 +277,7 @@
 		position: absolute;
 		top: 0;
 		bottom: -0.25rem;
-		left: calc( (var(--depth) - 1) * 0.8rem + 0.26rem );
+		left: calc( (var(--depth) - 1) * 0.55rem + 0.2rem );
 		width: 1px;
 		background: linear-gradient(180deg, rgba(191, 202, 219, 0.72), rgba(191, 202, 219, 0.12));
 		pointer-events: none;
@@ -327,24 +325,8 @@
 	.navigator__row-main {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
 		min-width: 0;
 		flex: 1;
-	}
-
-	.navigator__row-icon {
-		flex: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 1.45rem;
-		height: 1.1rem;
-		padding: 0 0.25rem;
-		border-radius: 0.4rem;
-		background: rgba(240, 243, 248, 0.94);
-		font-size: 9px;
-		font-weight: 800;
-		color: #42506b;
 	}
 
 	.navigator__row-copy {

@@ -86,6 +86,81 @@ describe( 'inspector contract', () => {
 		expect( zIndexPrimitive && 'showRange' in zIndexPrimitive ? zIndexPrimitive.showRange : undefined ).toBe( false );
 	} );
 
+	it( 'keeps common numeric inspector controls input-only', () => {
+		const registry = createDefaultBuilderRegistry();
+		const container = registry.elements.get( 'container' );
+		const heading = registry.elements.get( 'heading' );
+		const contentLayout = container?.contentSections.find( ( section ) => section.id === 'layout' );
+		const advancedLayout = heading?.advancedSections.find( ( section ) => section.id === 'layout' );
+		const motion = container?.advancedSections.find( ( section ) => section.id === 'motion-effects' );
+		const transform = container?.advancedSections.find( ( section ) => section.id === 'transform' );
+		const getContentPrimitive = ( key: string ) => contentLayout?.fields.find( ( field ) => field.id === key )?.primitive;
+		const getAdvancedPrimitive = ( sectionControls: typeof advancedLayout.controls | undefined, key: string ) => sectionControls?.find( ( control ) => control.key === key )?.primitive;
+		const expectInputOnlySlider = ( primitive: ReturnType<typeof getContentPrimitive> ) => {
+			expect( primitive?.kind ).toBe( 'slider' );
+			expect( primitive && 'showRange' in primitive ? primitive.showRange : undefined ).toBe( false );
+		};
+
+		expectInputOnlySlider( getContentPrimitive( 'gap' ) );
+		for ( const key of [ 'width', 'max-width', 'min-height', 'order' ] ) {
+			expectInputOnlySlider( getAdvancedPrimitive( advancedLayout?.controls, key ) );
+		}
+		for ( const key of [ 'transition-duration', 'animation-duration' ] ) {
+			expectInputOnlySlider( getAdvancedPrimitive( motion?.controls, key ) );
+		}
+		expectInputOnlySlider( getAdvancedPrimitive( transform?.controls, 'perspective' ) );
+	} );
+
+	it( 'exposes motion animations as a curated select control', () => {
+		const registry = createDefaultBuilderRegistry();
+		const motion = registry.elements.get( 'container' )?.advancedSections.find( ( section ) => section.id === 'motion-effects' );
+		const animation = motion?.controls.find( ( control ) => control.key === 'animation-name' );
+
+		expect( animation?.controlType ).toBe( 'select' );
+		expect( animation?.options?.map( ( option ) => option.value ) ).toEqual( [
+			'none',
+			'builder-fade-in',
+			'builder-fade-up',
+			'builder-fade-down',
+			'builder-slide-in-up',
+			'builder-slide-in-down',
+			'builder-slide-in-left',
+			'builder-slide-in-right',
+			'builder-zoom-in',
+			'builder-zoom-out',
+			'builder-pop-in',
+		] );
+	} );
+
+	it( 'exposes background position and size as curated select controls', () => {
+		const registry = createDefaultBuilderRegistry();
+		const background = registry.elements.get( 'container' )?.styleSections.find( ( section ) => section.id === 'background' );
+		const position = background?.controls.find( ( control ) => control.key === 'background-position' );
+		const size = background?.controls.find( ( control ) => control.key === 'background-size' );
+
+		expect( position?.controlType ).toBe( 'select' );
+		expect( position?.options?.map( ( option ) => option.value ) ).toEqual( [
+			'center center',
+			'center top',
+			'center bottom',
+			'left top',
+			'left center',
+			'left bottom',
+			'right top',
+			'right center',
+			'right bottom',
+		] );
+		expect( size?.controlType ).toBe( 'select' );
+		expect( size?.options?.map( ( option ) => option.value ) ).toEqual( [
+			'cover',
+			'contain',
+			'auto',
+			'100% auto',
+			'auto 100%',
+			'100% 100%',
+		] );
+	} );
+
 	it( 'exposes CSS id/class and custom CSS controls for every registered element', () => {
 		const registry = createDefaultBuilderRegistry();
 

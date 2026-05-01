@@ -1,13 +1,64 @@
 export const BUILDER_RUNTIME_BASE_STYLES = `
+	@keyframes builder-fade-in {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes builder-fade-up {
+		from { opacity: 0; transform: translate3d(0, 24px, 0); }
+		to { opacity: 1; transform: translate3d(0, 0, 0); }
+	}
+
+	@keyframes builder-fade-down {
+		from { opacity: 0; transform: translate3d(0, -24px, 0); }
+		to { opacity: 1; transform: translate3d(0, 0, 0); }
+	}
+
+	@keyframes builder-slide-in-up {
+		from { transform: translate3d(0, 32px, 0); }
+		to { transform: translate3d(0, 0, 0); }
+	}
+
+	@keyframes builder-slide-in-down {
+		from { transform: translate3d(0, -32px, 0); }
+		to { transform: translate3d(0, 0, 0); }
+	}
+
+	@keyframes builder-slide-in-left {
+		from { transform: translate3d(-32px, 0, 0); }
+		to { transform: translate3d(0, 0, 0); }
+	}
+
+	@keyframes builder-slide-in-right {
+		from { transform: translate3d(32px, 0, 0); }
+		to { transform: translate3d(0, 0, 0); }
+	}
+
+	@keyframes builder-zoom-in {
+		from { opacity: 0; transform: scale(0.94); }
+		to { opacity: 1; transform: scale(1); }
+	}
+
+	@keyframes builder-zoom-out {
+		from { opacity: 0; transform: scale(1.06); }
+		to { opacity: 1; transform: scale(1); }
+	}
+
+	@keyframes builder-pop-in {
+		0% { opacity: 0; transform: scale(0.92); }
+		70% { opacity: 1; transform: scale(1.025); }
+		100% { opacity: 1; transform: scale(1); }
+	}
+
 	.builder-runtime {
 		display: grid;
-		gap: 1.5rem;
+		gap: 0;
 		position: relative;
 	}
 
 	.builder-runtime__slot {
 		display: grid;
-		gap: 1rem;
+		gap: 0;
 	}
 
 	.builder-runtime__slot--popup,
@@ -21,6 +72,30 @@ export const BUILDER_RUNTIME_BASE_STYLES = `
 	.builder-node {
 		position: relative;
 		min-width: 0;
+	}
+
+	.builder-node--authoring-hidden {
+		opacity: 0.42;
+		filter: grayscale(1);
+		outline: 1px dashed rgba(148, 163, 184, 0.85);
+		outline-offset: -1px;
+	}
+
+	.builder-node--authoring-hidden::after {
+		content: "Hidden";
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		min-height: 32px;
+		background: rgba(15, 23, 42, 0.14);
+		color: rgba(255, 255, 255, 0.9);
+		font-size: 10px;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		pointer-events: none;
+		z-index: 2;
 	}
 
 	.builder-node__slot,

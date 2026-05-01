@@ -396,6 +396,7 @@
 			viewport: nextState.ui.viewport,
 			reducedMotion: false,
 			showPopups: nextState.ui.preview.showPopups,
+			authoringMode: false,
 			runtimeComponents: editor.runtimeComponents ?? new Map(),
 			composition: { activePage: undefined, previewDocument: undefined, previewSlot: undefined, slotDocuments: {}, slotAssignments: {}, assignments: [] },
 			componentsById: new Map(),
@@ -2265,6 +2266,83 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 		return String( rawValue ?? '' );
 	}
 
+	function stringifyControlPlaceholderValue( value: JsonValue | undefined ): string | undefined {
+		if ( value === undefined || value === null || value === '' ) {
+			return undefined;
+		}
+		if ( typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ) {
+			return String( value );
+		}
+		return undefined;
+	}
+
+	function readClassStylePlaceholderValue(
+		node: BuilderNode,
+		property: string,
+		target: ( typeof styleStateTargets )[ number ] = 'base',
+	): string | undefined {
+		for ( const styleRef of [ ...node.styleRefs ].reverse() ) {
+			const definition = state.project.designSystem.classes.find( ( entry ) => entry.id === styleRef || entry.name === styleRef );
+			if ( !definition ) {
+				continue;
+			}
+			const value = resolveResponsiveStyleValue( definition.styles, property, state.ui.viewport, target === 'base' ? 'base' : target ).value;
+			const placeholderValue = stringifyControlPlaceholderValue( value );
+			if ( placeholderValue !== undefined ) {
+				return placeholderValue;
+			}
+		}
+		return undefined;
+	}
+
+	function readRuntimeDefaultStylePlaceholderValue( node: BuilderNode, property: string ): string | undefined {
+		const propertyKey = normalizeStylePropertyName( property );
+		if ( propertyKey === 'margin' ) {
+			return '0';
+		}
+		if ( propertyKey === 'padding' && ( node.type === 'container' || node.type === 'grid-container' ) ) {
+			return '20px';
+		}
+		return undefined;
+	}
+
+	function getStyleControlPlaceholder(
+		property: BuilderStylePropertyDefinition,
+		target: ( typeof styleStateTargets )[ number ] = 'base',
+		sectionId?: string,
+	): string {
+		if ( !selectedNode ) {
+			return property.placeholder ?? '';
+		}
+
+		const propertyKey = getSelectedNodeScopedStyleProperty( sectionId, property.key );
+		const resolution = resolveResponsiveStyleValue( selectedNode.styles, propertyKey, state.ui.viewport, target === 'base' ? 'base' : target );
+		const inheritedValue = !resolution.hasOverride
+			? stringifyControlPlaceholderValue( resolution.inheritedValue )
+			: undefined;
+		return inheritedValue
+			?? readClassStylePlaceholderValue( selectedNode, propertyKey, target )
+			?? readRuntimeDefaultStylePlaceholderValue( selectedNode, propertyKey )
+			?? property.placeholder
+			?? '';
+	}
+
+	function getFieldControlPlaceholder( node: BuilderNode, field: BuilderFieldDefinition ): string {
+		if ( !field.styleProperty ) {
+			return field.placeholder ?? '';
+		}
+
+		const resolution = resolveResponsiveStyleValue( node.styles, field.styleProperty, state.ui.viewport, 'base' );
+		const inheritedValue = !resolution.hasOverride
+			? stringifyControlPlaceholderValue( resolution.inheritedValue )
+			: undefined;
+		return inheritedValue
+			?? readClassStylePlaceholderValue( node, field.styleProperty )
+			?? readRuntimeDefaultStylePlaceholderValue( node, field.styleProperty )
+			?? field.placeholder
+			?? '';
+	}
+
 	function getClassStyleValue( definition: ClassDefinition, property: string ) {
 		return String( readStyleValue( definition.styles, property, 'base' ) ?? '' );
 	}
@@ -3027,7 +3105,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 												layoutDirection={selectedNodeLayoutDirection}
 												primitive={resolveFieldPrimitive( field )}
 												value={getFieldValue( selectedNode, field )}
-												placeholder={field.placeholder ?? ''}
+												placeholder={getFieldControlPlaceholder( selectedNode, field )}
 												state={getResponsiveFieldState( field )}
 												dynamicProviders={getDynamicProviderOptions( fieldDynamicCategory )}
 												dynamicBinding={getDynamicBindingView( getDynamicBindingForTarget( fieldDynamicTargetKind, fieldDynamicTarget ) )}
@@ -3176,7 +3254,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 													layoutDirection={selectedNodeLayoutDirection}
 													primitive={property.primitive}
 													value={getStyleInputValue( property, styleTarget, propertyStateful, section.id )}
-													placeholder={property.placeholder ?? ''}
+													placeholder={getStyleControlPlaceholder( property, styleTarget, section.id )}
 													dynamicProviders={getDynamicProviderOptions( dynamicStyleCategory )}
 													dynamicBinding={getDynamicBindingView( getDynamicBindingForTarget( 'style', dynamicStyleTarget ) )}
 													{mediaAssets}
@@ -3252,7 +3330,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 													layoutDirection={selectedNodeLayoutDirection}
 													primitive={property.primitive}
 													value={getStyleInputValue( property, styleTarget, propertyStateful, popoverSection.id )}
-													placeholder={property.placeholder ?? ''}
+													placeholder={getStyleControlPlaceholder( property, styleTarget, popoverSection.id )}
 													dynamicProviders={getDynamicProviderOptions( dynamicStyleCategory )}
 													dynamicBinding={getDynamicBindingView( getDynamicBindingForTarget( 'style', dynamicStyleTarget ) )}
 													{mediaAssets}
@@ -3318,7 +3396,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 												layoutDirection={selectedNodeLayoutDirection}
 												primitive={property.primitive}
 												value={getStyleInputValue( property )}
-												placeholder={property.placeholder ?? ''}
+												placeholder={getStyleControlPlaceholder( property )}
 												state={getResponsiveStyleControlState( property )}
 												dynamicProviders={getDynamicProviderOptions( dynamicStyleCategory )}
 												dynamicBinding={getDynamicBindingView( getDynamicBindingForTarget( 'style', dynamicStyleTarget ) )}
@@ -3361,7 +3439,7 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 												layoutDirection={selectedNodeLayoutDirection}
 												primitive={resolveFieldPrimitive( field )}
 												value={getFieldValue( selectedNode, field )}
-												placeholder={field.placeholder ?? ''}
+												placeholder={getFieldControlPlaceholder( selectedNode, field )}
 												state={getResponsiveFieldState( field )}
 												dynamicProviders={getDynamicProviderOptions( fieldDynamicCategory )}
 												dynamicBinding={getDynamicBindingView( getDynamicBindingForTarget( fieldDynamicTargetKind, fieldDynamicTarget ) )}
@@ -3391,7 +3469,17 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 										<label><span>Display</span><select value={selectedNode.visibility.display} onchange={(event) => updateFieldValue( 'visibility.display', ( event.currentTarget as HTMLSelectElement ).value )}><option value="show">show</option><option value="hide-when-matched">hide-when-matched</option></select></label>
 										<div class="inspector__nested-group">
 											<h5>Hide On</h5>
-											{#each authoringBreakpoints as breakpoint (breakpoint.id)}<label><span>{breakpoint.label}</span><input type="checkbox" checked={selectedNode.visibility.breakpointHidden[ breakpoint.id ] ?? false} onchange={(event) => updateVisibilityBreakpointHidden( breakpoint.id, ( event.currentTarget as HTMLInputElement ).checked )} /></label>{/each}
+											<div class="inspector__breakpoint-toggle-group">
+												{#each authoringBreakpoints as breakpoint (breakpoint.id)}
+													<label
+														class="inspector__breakpoint-toggle"
+														class:inspector__breakpoint-toggle--active={selectedNode.visibility.breakpointHidden[ breakpoint.id ] ?? false}
+													>
+														<input type="checkbox" checked={selectedNode.visibility.breakpointHidden[ breakpoint.id ] ?? false} onchange={(event) => updateVisibilityBreakpointHidden( breakpoint.id, ( event.currentTarget as HTMLInputElement ).checked )} />
+														<span>{breakpoint.label}</span>
+													</label>
+												{/each}
+											</div>
 										</div>
 										<p>Condition groups: {selectedNode.visibility.conditionGroups.length}</p>
 									</div>
@@ -3619,6 +3707,60 @@ function onFieldInput( field: BuilderFieldDefinition, value: string ) {
 		border-radius: 6px;
 		background: rgba( 255, 255, 255, 0.035 );
 		border: 1px solid rgba( 255, 255, 255, 0.08 );
+	}
+
+	.inspector__breakpoint-toggle-group {
+		display: grid;
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+		gap: 6px;
+	}
+
+	.inspector label.inspector__breakpoint-toggle {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		min-width: 0;
+		min-height: 30px;
+		padding: 0 8px;
+		border: 1px solid rgba( 255, 255, 255, 0.12 );
+		border-radius: 5px;
+		background: rgba( 255, 255, 255, 0.04 );
+		color: var( --builder-shell-toolbar-text-muted );
+		cursor: pointer;
+		transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+	}
+
+	.inspector label.inspector__breakpoint-toggle:hover {
+		border-color: rgba( 255, 255, 255, 0.24 );
+		background: rgba( 255, 255, 255, 0.07 );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.inspector label.inspector__breakpoint-toggle--active {
+		border-color: rgba( 217, 70, 239, 0.75 );
+		background: rgba( 217, 70, 239, 0.16 );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.inspector .inspector__breakpoint-toggle input {
+		width: 13px;
+		height: 13px;
+		min-height: 13px;
+		margin: 0;
+		padding: 0;
+		flex: 0 0 auto;
+		accent-color: var( --builder-shell-accent );
+	}
+
+	.inspector .inspector__breakpoint-toggle span {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: inherit;
+		font-size: 11px;
+		font-weight: 600;
 	}
 
 	.inspector label {

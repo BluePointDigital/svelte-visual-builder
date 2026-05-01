@@ -20,6 +20,7 @@
 		viewport = 'desktop',
 		reducedMotion = false,
 		showPopups = false,
+		authoringMode = false,
 		runtimeComponents,
 		bridgeEvents = false,
 		bridgeRenderVersion = 0,
@@ -45,6 +46,7 @@
 		viewport,
 		reducedMotion,
 		showPopups,
+		authoringMode,
 		runtimeComponents,
 	} ) );
 
@@ -158,13 +160,13 @@
 <style>
 	.builder-runtime {
 		display: grid;
-		gap: 1.5rem;
+		gap: 0;
 		position: relative;
 	}
 
 	.builder-runtime__slot {
 		display: grid;
-		gap: 1rem;
+		gap: 0;
 	}
 
 	.builder-runtime__slot--popup,

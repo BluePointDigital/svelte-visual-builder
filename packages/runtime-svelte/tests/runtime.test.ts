@@ -13,6 +13,7 @@ import {
 	getNodeStyle,
 	mergeNodeClassAttribute,
 	getRenderableRoots,
+	isNodeVisible,
 	isNativeFormFieldNode,
 	renderDocument,
 	resolveAccordionItems,
@@ -127,6 +128,29 @@ describe( 'runtime-svelte', () => {
 
 		expect( runtimeComponents.get( 'custom-card' ) ).toBe( CustomRuntimeCard );
 		expect( model.runtimeComponents.get( 'custom-card' ) ).toBe( CustomRuntimeCard );
+	} );
+
+	it( 'keeps hidden nodes runtime-hidden while carrying authoring mode for editor ghosts', () => {
+		const document = createEmptyDocument( 'page', 'Home', 'home' );
+		const hiddenNode = createNode( {
+			id: 'hidden-section',
+			type: 'container',
+			visibility: {
+				hidden: false,
+				breakpointHidden: { desktop: true, tablet: true, mobile: true },
+				conditionGroups: [],
+				display: 'show',
+			},
+		} );
+		document.root = [ hiddenNode ];
+		const project = createBuilderPackage( 'Demo', [ document ] );
+		const liveModel = renderDocument( { project, activeDocumentId: document.id, viewport: 'desktop' } );
+		const authoringModel = renderDocument( { project, activeDocumentId: document.id, viewport: 'desktop', authoringMode: true } );
+
+		expect( liveModel.authoringMode ).toBe( false );
+		expect( authoringModel.authoringMode ).toBe( true );
+		expect( isNodeVisible( hiddenNode, liveModel ) ).toBe( false );
+		expect( isNodeVisible( hiddenNode, authoringModel ) ).toBe( false );
 	} );
 
 	it( 'resolves props for nodes backed by custom Svelte runtime components', () => {

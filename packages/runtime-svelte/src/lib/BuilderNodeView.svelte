@@ -75,7 +75,9 @@
 	const resolvedAttributes = $derived( resolveNodeAttributes( node, model, record ) );
 	const nodeStyle = $derived( getNodeStyle( node, model, record ) );
 	const nodeClasses = $derived( getNodeClassNames( node, model ) );
-	const visible = $derived( isNodeVisible( node, model, record ) );
+	const runtimeVisible = $derived( isNodeVisible( node, model, record ) );
+	const authoringHidden = $derived( model.authoringMode && !runtimeVisible );
+	const visible = $derived( runtimeVisible || model.authoringMode );
 	const customRuntimeComponent = $derived( model.runtimeComponents.get( node.type ) );
 	const slotDefinitions = $derived( definition?.runtime.slots ?? [] );
 	const slotIds = $derived( slotDefinitions.map( ( entry ) => entry.id ) );
@@ -91,7 +93,7 @@
 				? [ nodeStyle, defaultContainerPadding ].filter( Boolean ).join( ' ' )
 				: nodeStyle,
 	);
-	const shouldShowContainerDropPlaceholder = $derived( isContainerSurface && !node.children.length && !slotDefinitions.length && !hasInlineTextContent );
+	const shouldShowContainerDropPlaceholder = $derived( model.authoringMode && isContainerSurface && !node.children.length && !slotDefinitions.length && !hasInlineTextContent );
 	const inlineEditingMode = $derived<BuilderInlineEditingMode | undefined>(
 		resolveBuilderInlineEditingMode( node.type, definition?.runtime.supportsInlineEditing ),
 	);
@@ -168,6 +170,7 @@
 			'builder-node',
 			`builder-node--${ node.type }`,
 			nodeClasses,
+			authoringHidden ? 'builder-node--authoring-hidden' : undefined,
 			extraClass,
 		] );
 
@@ -187,6 +190,7 @@
 			'data-builder-slot-ids': slotIds.join( ',' ),
 			'data-builder-editable': String( inlineEditable ),
 			'data-builder-inline-mode': inlineEditingMode,
+			'data-builder-runtime-hidden': authoringHidden ? 'true' : undefined,
 		} );
 	}
 
@@ -366,7 +370,7 @@
 									record={record}
 								/>
 							{/each}
-						{:else}
+						{:else if model.authoringMode}
 							<div class="builder-empty-view builder-empty-view--slot" aria-hidden="true">
 								<span class="builder-empty-view__label">+ Drop Items</span>
 								<span class="builder-empty-view__context">Drop into {slotDefinition.label}</span>
@@ -569,7 +573,7 @@
 							{/each}
 						{:else if item.content}
 							<div class="builder-tabs__panel-copy">{@html item.content}</div>
-						{:else}
+						{:else if model.authoringMode}
 							<div class="builder-empty-view builder-empty-view--slot" aria-hidden="true">
 								<span class="builder-empty-view__label">+ Drop Items</span>
 								<span class="builder-empty-view__context">Add tab panel content</span>
@@ -812,7 +816,7 @@
 							{/if}
 						</div>
 						{/each}
-					{#if !generatedFormFields.length}
+					{#if model.authoringMode && !generatedFormFields.length}
 						<div class="builder-empty-view builder-empty-view--slot" aria-hidden="true">
 							<span class="builder-empty-view__label">+ Drop Items</span>
 							<span class="builder-empty-view__context">Add form fields</span>
@@ -897,7 +901,7 @@
 								record={record}
 							/>
 						{/each}
-					{:else}
+					{:else if model.authoringMode}
 						<div class="builder-empty-view builder-empty-view--slot" aria-hidden="true">
 							<span class="builder-empty-view__label">+ Drop Items</span>
 							<span class="builder-empty-view__context">Drop into {slotDefinition.label}</span>
@@ -918,6 +922,30 @@
 <style>
 	.builder-node {
 		position: relative;
+	}
+
+	.builder-node--authoring-hidden {
+		opacity: 0.42;
+		filter: grayscale(1);
+		outline: 1px dashed rgba(148, 163, 184, 0.85);
+		outline-offset: -1px;
+	}
+
+	.builder-node--authoring-hidden::after {
+		content: "Hidden";
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		min-height: 32px;
+		background: rgba(15, 23, 42, 0.14);
+		color: rgba(255, 255, 255, 0.9);
+		font-size: 10px;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		pointer-events: none;
+		z-index: 2;
 	}
 
 	.builder-node__slot,

@@ -947,6 +947,7 @@
 				},
 				viewport: state.ui.viewport,
 				showPopups: state.ui.preview.showPopups,
+				authoringMode: !previewPresentationMode,
 				bridgeEvents: true,
 				bridgeRenderVersion: nextRenderVersion,
 				onGeometrySnapshot: ( snapshot ) => {
@@ -1460,6 +1461,7 @@
 			&& left.ui.dropTarget === right.ui.dropTarget
 			&& left.ui.canvas.renderVersion === right.ui.canvas.renderVersion
 			&& left.ui.canvas.snapshotVersion === right.ui.canvas.snapshotVersion
+			&& left.ui.shell.panelCollapsed === right.ui.shell.panelCollapsed
 			&& left.ui.shell.responsiveBarVisible === right.ui.shell.responsiveBarVisible
 			&& left.ui.saveState === right.ui.saveState
 			&& left.ui.mode === right.ui.mode
@@ -1487,6 +1489,7 @@
 				|| nextState.ui.preview.slot !== previousState.ui.preview.slot
 				|| nextState.ui.preview.assignmentId !== previousState.ui.preview.assignmentId
 				|| nextState.ui.preview.source !== previousState.ui.preview.source
+				|| nextState.ui.shell.panelCollapsed !== previousState.ui.shell.panelCollapsed
 			);
 			const shouldRefreshOverlay = suppressProjectSync
 				|| nextState.ui.selectedNodeIds[ 0 ] !== previousState.ui.selectedNodeIds[ 0 ]
@@ -1852,6 +1855,10 @@
 	.builder-preview-shell--presentation .builder-preview__action-rail,
 	.builder-preview-shell--presentation .builder-preview__divider-affordance {
 		display: none;
+	}
+
+	.builder-preview-shell--presentation :global(.builder-empty-view) {
+		display: none !important;
 	}
 
 	.builder-preview__responsive-bar {

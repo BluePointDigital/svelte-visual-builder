@@ -11,6 +11,7 @@ import {
 	type DocumentRevision,
 } from '@builder/schema';
 import { importElementorPackage, type ElementorImportWarning } from '@builder/elementor-import';
+import deepseekHomepageFixture from './fixtures/deepseek-homepage.builder.json';
 
 export type DemoStudioFixture = 'default' | 'dense-200' | 'dense-500';
 
@@ -209,6 +210,11 @@ function applyDenseFixture( document: BuilderDocument, fixture: DemoStudioFixtur
 	return document;
 }
 
+function createShippingHomepageRoot(): BuilderNode[] {
+	const [ document ] = ( deepseekHomepageFixture as { documents?: Array<{ root?: BuilderNode[] }> } ).documents ?? [];
+	return JSON.parse( JSON.stringify( document?.root ?? [] ) ) as BuilderNode[];
+}
+
 export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} ): DemoStudioData {
 	const fixture = options.fixture ?? 'default';
 	const kit = createDocument( 'kit', 'Default Site Kit', 'default-site-kit' );
@@ -221,7 +227,7 @@ export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} 
 			footerNote: 'Built to mirror Elementor-style parity flows.',
 		},
 		navigation: {
-			primary: [ 'Home', 'Blog', 'Pricing', 'Support' ],
+			primary: [ 'Home', 'Blog', 'Support' ],
 			siteEditor: [ 'Templates', 'Layout', 'Popups', 'Library' ],
 		},
 	};
@@ -422,8 +428,8 @@ export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} 
 			} ),
 			children: [
 				createNode( { type: 'heading', props: { text: 'Svelte Builder', level: 'h3' } } ),
-				createNode( { type: 'menu', props: { items: [ { label: 'Home', href: '/' }, { label: 'Blog', href: '/blog' }, { label: 'Pricing', href: '/pricing' }, { label: 'Support', href: '/support' } ] } } ),
-				createNode( { type: 'button', props: { text: 'Book a demo', href: '/pricing' } } ),
+				createNode( { type: 'menu', props: { items: [ { label: 'Home', href: '/' }, { label: 'Blog', href: '/blog' }, { label: 'Support', href: '/support' } ] } } ),
+				createNode( { type: 'button', props: { text: 'GitHub', href: 'https://github.com/BluePointDigital/svelte-visual-builder' } } ),
 			],
 		} ),
 	];
@@ -508,256 +514,7 @@ export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} 
 	page.meta = {
 		flows: [ 'composition', 'named-slots', 'popup-preview', 'library' ],
 	};
-	page.root = [
-		createNode( {
-			type: 'container',
-			layout: { display: 'flex', direction: 'column', gap: '2rem' },
-			styles: createStyleSet( {
-				base: {
-					padding: '2rem',
-					maxWidth: '1120px',
-					margin: '0 auto',
-				},
-			} ),
-			children: [
-				createNode( {
-					type: 'component-instance',
-					props: {
-						componentId: heroComponent.id,
-						overrides: {
-							'hero-title': 'Parity-oriented Svelte page building',
-							'hero-copy': 'This page mixes native widgets, named slots, assignment-driven layout, loop rendering, popup composition, and editable compat content.',
-							'hero-cta': 'Explore the system',
-						},
-					},
-				} ),
-				createNode( {
-					type: 'container',
-					styleRefs: [ 'surface-card' ],
-					children: [
-						createNode( {
-							type: 'heading',
-							props: { text: 'Named slot orchestration', level: 'h2' },
-						} ),
-						createNode( {
-							type: 'paragraph',
-							props: { text: 'This fixture uses named slots for status, supporting rail content, and action groups instead of forcing everything into children.' },
-						} ),
-					],
-					slots: {
-						status: [
-							createNode( {
-								type: 'paragraph',
-								styleRefs: [ 'eyebrow-pill' ],
-								props: { text: 'Slot: status' },
-							} ),
-						],
-						rail: [
-							createNode( {
-								type: 'component-instance',
-								props: {
-									componentId: featureSpotlightComponent.id,
-									overrides: {
-										'feature-eyebrow': 'Slot: rail',
-										'feature-title': 'Contextual content rail',
-										'feature-copy': 'Named slots make future panel, sidebar, and auxiliary document insertion much easier to extend.',
-										'feature-link': 'Inspect slot mapping',
-									},
-								},
-							} ),
-						],
-						actions: [
-							createNode( { type: 'button', props: { text: 'Open popup preview', href: '/marketing-landing?preview=1' } } ),
-							createNode( { type: 'button', props: { text: 'Open site editor rail', href: '/marketing-landing?siteEditor=templates' } } ),
-						],
-					},
-				} ),
-				createNode( {
-					type: 'container',
-					layout: { display: 'grid', columns: 3, gap: '1rem' },
-					children: [
-						createNode( {
-							type: 'component-instance',
-							props: {
-								componentId: statComponent.id,
-								overrides: { 'stat-value': '9', 'stat-label': 'Document kinds and flows' },
-							},
-						} ),
-						createNode( {
-							type: 'component-instance',
-							props: {
-								componentId: statComponent.id,
-								overrides: { 'stat-value': '12', 'stat-label': 'Theme assignments and slot routes' },
-							},
-						} ),
-						createNode( {
-							type: 'component-instance',
-							props: {
-								componentId: statComponent.id,
-								overrides: { 'stat-value': '5', 'stat-label': 'Previewable media assets' },
-							},
-						} ),
-					],
-				} ),
-				createNode( {
-					type: 'paragraph',
-					props: {
-						text: 'The parity fixture surface now exercises layouts, templates, components, library items, native content nodes, data-driven loops, popup and modal previews, site-editor rails, and mixed legacy compatibility imports.',
-					},
-				} ),
-				createNode( {
-					type: 'text-editor',
-					props: {
-						text: '<p><strong>Inline rich text</strong> stays editor-owned in the V3 shell, so formatting changes round-trip without depending on runtime DOM editing.</p>',
-					},
-				} ),
-				createNode( {
-					type: 'blockquote',
-					props: {
-						text: 'Shared editing contracts make <em>preview surfaces</em> feel dependable instead of fragile.',
-						cite: 'Builder runtime notes',
-					},
-				} ),
-				createNode( {
-					type: 'container',
-					layout: { display: 'grid', columns: 4, gap: '1rem' },
-					children: [
-						createNode( { type: 'icon-box', props: { symbol: 'layers', title: 'Layouts', text: 'Header, footer, sidebar, and shell composition.' } } ),
-						createNode( { type: 'icon-box', props: { symbol: 'database', title: 'Data bindings', text: 'Collections, load data, query params, and session context.' } } ),
-						createNode( { type: 'icon-box', props: { symbol: 'spark', title: 'Components', text: 'Reusable masters with exposed overrides.' } } ),
-						createNode( { type: 'icon-box', props: { symbol: 'shield', title: 'Legacy import', text: 'Editable compatibility widgets for unsupported Elementor content.' } } ),
-					],
-				} ),
-				createNode( {
-					type: 'tabs',
-					props: { activeTab: 0 },
-					slots: {
-						triggers: [
-							createNode( { type: 'button', props: { text: 'Audience', href: '#' } } ),
-							createNode( { type: 'button', props: { text: 'System', href: '#' } } ),
-							createNode( { type: 'button', props: { text: 'Delivery', href: '#' } } ),
-						],
-						panels: [
-							createNode( {
-								type: 'container',
-								styles: createStyleSet( { base: { padding: '1rem', background: '#ffffff', border: '1px solid #d7deec', borderRadius: '1rem' } } ),
-								children: [
-									createNode( { type: 'paragraph', props: { text: 'Audience targeting is represented by path-aware assignments, popup preview conditions, and optional condition groups.' } } ),
-								],
-							} ),
-							createNode( {
-								type: 'container',
-								styles: createStyleSet( { base: { padding: '1rem', background: '#ffffff', border: '1px solid #d7deec', borderRadius: '1rem' } } ),
-								children: [
-									createNode( { type: 'paragraph', props: { text: 'The system combines design tokens, classes, variables, templates, components, named slots, and theme assignments.' } } ),
-								],
-							} ),
-							createNode( {
-								type: 'container',
-								styles: createStyleSet( { base: { padding: '1rem', background: '#ffffff', border: '1px solid #d7deec', borderRadius: '1rem' } } ),
-								children: [
-									createNode( { type: 'paragraph', props: { text: 'Delivery spans preview, publish, import, reusable library items, and a compact site-editor entry flow.' } } ),
-								],
-							} ),
-						],
-					},
-				} ),
-				createNode( {
-					type: 'accordion',
-					props: {
-						items: [
-							{ title: 'Named slots', body: 'Named slot nodes let the preview exercise rail, action, and status areas without hardcoding structure into the runtime.' },
-							{ title: 'Loop item assignments', body: 'Loop item and empty-state documents exist as assignment targets so future runtime work can wire them in cleanly.' },
-							{ title: 'Legacy compatibility', body: 'Unsupported Elementor widgets become editable compat widgets instead of disappearing.' },
-						],
-					},
-				} ),
-				createNode( {
-					type: 'gallery',
-					props: {
-						images: [
-							createSvgDataUrl( 'Gallery asset one', '#2563eb', '#1d4ed8' ),
-							createSvgDataUrl( 'Gallery asset two', '#0f766e', '#115e59' ),
-							createSvgDataUrl( 'Gallery asset three', '#7c3aed', '#5b21b6' ),
-						],
-					},
-				} ),
-				createNode( {
-					type: 'carousel',
-					props: {
-						slides: [
-							{ title: 'Composition view', caption: 'Header, page, footer, sidebar, popup, modal, and loop slot assignments resolved together.' },
-							{ title: 'Runtime view', caption: 'Bindings, conditions, styles, and compatibility widgets remain separate.' },
-							{ title: 'Editor view', caption: 'Selection, history, and preview state stay isolated from persisted documents.' },
-						],
-					},
-				} ),
-				createNode( {
-					type: 'form',
-					props: { submitLabel: 'Subscribe to updates' },
-					children: [
-						createNode( {
-							type: 'form-field-email',
-							props: {
-								markup: '<label class="builder-form-field"><span>Email</span><input type="email" placeholder="name@example.com" /></label>',
-							},
-						} ),
-						createNode( {
-							type: 'form-field-checkbox',
-							props: {
-								markup: '<label class="builder-form-field builder-form-field--checkbox"><input type="checkbox" checked /><span>I want product and parity updates</span></label>',
-							},
-						} ),
-					],
-				} ),
-				createNode( {
-					type: 'loop',
-					props: { collection: 'posts', limit: 3, emptyText: 'No posts available' },
-					slots: {
-						item: [
-							createNode( {
-								type: 'container',
-								styles: createStyleSet( {
-									base: {
-										padding: '1rem',
-										border: '1px solid #cbd5e1',
-										borderRadius: '1rem',
-										background: '#ffffff',
-									},
-								} ),
-								children: [
-									createNode( {
-										type: 'heading',
-										props: { text: 'Fallback title', level: 'h3' },
-										bindings: [ { id: 'loop-title', targetKind: 'prop', target: 'text', source: 'collection', path: 'title', args: {} } ],
-									} ),
-									createNode( {
-										type: 'paragraph',
-										props: { text: 'Fallback excerpt' },
-										bindings: [ { id: 'loop-excerpt', targetKind: 'prop', target: 'text', source: 'collection', path: 'excerpt', args: {} } ],
-									} ),
-									createNode( {
-										type: 'paragraph',
-										props: { text: 'Fallback author' },
-										bindings: [ { id: 'loop-author', targetKind: 'prop', target: 'text', source: 'collection', path: 'author', args: {} } ],
-									} ),
-								],
-							} ),
-						],
-						empty: [
-							createNode( { type: 'paragraph', props: { text: 'Nothing in the collection yet.' } } ),
-						],
-					},
-				} ),
-				createNode( {
-					type: 'svg',
-					props: {
-						markup: '<svg viewBox="0 0 200 56" xmlns="http://www.w3.org/2000/svg"><rect width="200" height="56" rx="14" fill="#dbeafe"/><text x="20" y="35" fill="#1d4ed8" font-family="Arial" font-size="22" font-weight="700">Svelte Builder</text></svg>',
-					},
-				} ),
-			],
-		} ),
-	];
+	page.root = createShippingHomepageRoot();
 	if ( fixture !== 'default' ) {
 		applyDenseFixture( page, fixture );
 	}
@@ -1677,6 +1434,14 @@ export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} 
 			documentId: page.id,
 			slot: 'page',
 			status: 'published',
+			pathname: '/',
+			priority: 95,
+			label: 'Homepage',
+		} ),
+		createThemeAssignment( {
+			documentId: page.id,
+			slot: 'page',
+			status: 'published',
 			pathname: '/marketing-landing',
 			priority: 90,
 			label: 'Marketing landing',
@@ -1787,7 +1552,7 @@ export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} 
 		} ),
 		...imported.project.themeAssignments,
 		...importedKit.project.themeAssignments,
-		...importedThemeBuilder.project.themeAssignments,
+		...importedThemeBuilder.project.themeAssignments.filter( ( assignment ) => assignment.slot !== 'header' && assignment.slot !== 'footer' ),
 	] );
 
 	project.designSystem.variables.push(
@@ -2051,7 +1816,7 @@ export function createDemoStudioData( options: CreateDemoStudioDataOptions = {} 
 			],
 		},
 		previewPresets: [
-			{ id: 'landing-popup', label: 'Marketing landing with popup preview', pathname: '/marketing-landing', query: 'preview=1&siteEditor=templates' },
+			{ id: 'landing-popup', label: 'Homepage with popup preview', pathname: '/', query: 'preview=1' },
 			{ id: 'component-flow', label: 'Component flow playground', pathname: '/components', query: 'siteEditor=templates' },
 			{ id: 'legacy-mixed', label: 'Mixed legacy migration', pathname: '/legacy-mixed', query: 'preview=1&modal=1' },
 			{ id: 'imported-theme', label: 'Imported theme builder preview', pathname: '/imported-mixed', query: 'importedPopup=1' },
