@@ -21,13 +21,10 @@ Svelte Visual Builder is open source under the [MIT License](LICENSE).
 
 ## Latest Changes
 
-### Unreleased
+### Version 0.2.8 - 2026-05-01
 
 - Added an MIT open source license and package metadata so GitHub and package consumers identify the project as MIT-licensed.
 - Scoped the runtime to `box-sizing: border-box` and tightened default image sizing so published grid/flex layouts match the editor more reliably.
-
-### Version 0.2.8 - 2026-05-01
-
 - Overhauled the non-canvas shell areas with a dark-native visual system across Page Settings, History, Menu, and Globals.
 - Moved complex Menu management into a full-workspace view so documents, presets, assignments, components, site entries, and import diagnostics have enough room.
 - Added footer undo/redo controls and simplified redundant shell header/footer icons.
