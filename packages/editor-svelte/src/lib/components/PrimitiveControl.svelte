@@ -719,6 +719,8 @@
 {:else}
   <section
     class={`primitive-control primitive-control--kind-${resolved.kind}`}
+    class:primitive-control--compact={resolved.kind === "slider" &&
+      resolved.showRange === false}
     class:primitive-control--disabled={disabled}
   >
     <header class="primitive-control__header">
@@ -1470,6 +1472,11 @@
   .primitive-control--section {
     gap: 0;
     padding-bottom: 0;
+  }
+
+  .primitive-control--compact {
+    gap: 4px;
+    padding-bottom: 7px;
   }
 
   .primitive-control--disabled {

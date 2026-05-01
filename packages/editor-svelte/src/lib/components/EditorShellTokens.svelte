@@ -78,8 +78,14 @@
 		--builder-shell-dark-panel: #15171c;
 		--builder-shell-dark-panel-raised: #1d2027;
 		--builder-shell-dark-panel-muted: #242832;
+		--builder-shell-dark-panel-subtle: #191c22;
+		--builder-shell-dark-field: #111318;
+		--builder-shell-dark-field-hover: #171a20;
 		--builder-shell-dark-border: rgba(255, 255, 255, 0.1);
 		--builder-shell-dark-border-strong: rgba(255, 255, 255, 0.18);
+		--builder-shell-dark-text: #f1f2f3;
+		--builder-shell-dark-text-muted: #babfc5;
+		--builder-shell-dark-text-subtle: #818a96;
 		--builder-shell-border-color: var(--builder-shell-border);
 		--builder-shell-border-color-bold: var(--builder-shell-border-strong);
 		--builder-shell-accent-soft: #f3bafd;
@@ -204,6 +210,60 @@
 		color: var(--builder-shell-heading);
 	}
 
+	:global(.builder-panel-shell--dark .builder-shell-button--ghost) {
+		color: var(--builder-shell-dark-text-muted);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-button--ghost:hover) {
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--builder-shell-dark-text);
+	}
+
+	:global(.builder-shell-button--primary),
+	:global(.builder-shell-button--danger) {
+		border-color: var(--builder-shell-border);
+		background: #ffffff;
+		color: var(--builder-shell-text-strong);
+	}
+
+	:global(.builder-shell-button--primary:hover) {
+		border-color: var(--builder-shell-accent);
+		background: var(--builder-shell-accent-surface);
+		color: var(--builder-shell-accent-text);
+	}
+
+	:global(.builder-shell-button--danger:hover) {
+		border-color: rgba(220, 38, 38, 0.36);
+		background: rgba(220, 38, 38, 0.08);
+		color: #991b1b;
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-button--primary),
+	:global(.builder-panel-shell--dark .builder-shell-button--danger) {
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.055);
+		color: var(--builder-shell-dark-text);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-button--primary:hover) {
+		border-color: rgba(243, 186, 253, 0.46);
+		background: rgba(208, 4, 212, 0.18);
+		color: #ffffff;
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-button--danger:hover) {
+		border-color: rgba(248, 113, 113, 0.38);
+		background: rgba(220, 38, 38, 0.18);
+		color: #fecaca;
+	}
+
+	:global(.builder-shell-button:disabled),
+	:global(.builder-shell-toolbar-button:disabled),
+	:global(.builder-shell-icon-button:disabled) {
+		opacity: 0.48;
+		cursor: not-allowed;
+	}
+
 	:global(.builder-shell-input),
 	:global(.builder-shell-select),
 	:global(.builder-shell-field input),
@@ -238,6 +298,40 @@
 		box-shadow: var(--builder-shell-focus-ring);
 	}
 
+	:global(.builder-panel-shell--dark .builder-shell-input),
+	:global(.builder-panel-shell--dark .builder-shell-select),
+	:global(.builder-panel-shell--dark .builder-shell-field input),
+	:global(.builder-panel-shell--dark .builder-shell-field select),
+	:global(.builder-panel-shell--dark .builder-shell-field textarea) {
+		border-color: var(--builder-shell-dark-border);
+		background-color: var(--builder-shell-dark-field);
+		color: var(--builder-shell-dark-text);
+		color-scheme: dark;
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-input::placeholder),
+	:global(.builder-panel-shell--dark .builder-shell-field input::placeholder),
+	:global(.builder-panel-shell--dark .builder-shell-field textarea::placeholder) {
+		color: var(--builder-shell-dark-text-subtle);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-input:hover),
+	:global(.builder-panel-shell--dark .builder-shell-select:hover),
+	:global(.builder-panel-shell--dark .builder-shell-field input:hover),
+	:global(.builder-panel-shell--dark .builder-shell-field select:hover),
+	:global(.builder-panel-shell--dark .builder-shell-field textarea:hover) {
+		border-color: var(--builder-shell-dark-border-strong);
+		background-color: var(--builder-shell-dark-field-hover);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-input:focus-visible),
+	:global(.builder-panel-shell--dark .builder-shell-select:focus-visible),
+	:global(.builder-panel-shell--dark .builder-shell-field input:focus-visible),
+	:global(.builder-panel-shell--dark .builder-shell-field select:focus-visible),
+	:global(.builder-panel-shell--dark .builder-shell-field textarea:focus-visible) {
+		border-color: var(--builder-shell-accent-soft);
+	}
+
 	:global(.builder-shell-select) {
 		padding-inline-end: 1.75rem;
 		background-image:
@@ -251,6 +345,19 @@
 		appearance: none;
 	}
 
+	:global(.builder-panel-shell--dark .builder-shell-select),
+	:global(.builder-panel-shell--dark .builder-shell-field select) {
+		background-image:
+			linear-gradient(45deg, transparent 50%, var(--builder-shell-dark-text-muted) 50%),
+			linear-gradient(135deg, var(--builder-shell-dark-text-muted) 50%, transparent 50%);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-select option),
+	:global(.builder-panel-shell--dark .builder-shell-field select option) {
+		background: var(--builder-shell-dark-field);
+		color: var(--builder-shell-dark-text);
+	}
+
 	:global(.builder-shell-field) {
 		display: grid;
 		gap: 0.3rem;
@@ -262,6 +369,10 @@
 		letter-spacing: 0.08em;
 		text-transform: uppercase;
 		color: var(--builder-shell-text-muted);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-field span) {
+		color: var(--builder-shell-dark-text-subtle);
 	}
 
 	:global(.builder-shell-badge) {
@@ -293,6 +404,29 @@
 		color: var(--builder-shell-toolbar-text);
 	}
 
+	:global(.builder-panel-shell--dark .builder-shell-badge) {
+		border: 1px solid rgba(255, 255, 255, 0.06);
+		background: rgba(255, 255, 255, 0.07);
+		color: var(--builder-shell-dark-text-muted);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-badge--accent) {
+		border-color: rgba(243, 186, 253, 0.25);
+		background: rgba(208, 4, 212, 0.18);
+		color: #f5d0fe;
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-badge--neutral) {
+		background: rgba(255, 255, 255, 0.055);
+		color: var(--builder-shell-dark-text-muted);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-badge--dark) {
+		border-color: var(--builder-shell-dark-border-strong);
+		background: rgba(255, 255, 255, 0.11);
+		color: var(--builder-shell-dark-text);
+	}
+
 	:global(.builder-shell-card) {
 		border: 1px solid var(--builder-shell-border);
 		border-radius: var(--builder-shell-radius-lg);
@@ -303,6 +437,57 @@
 
 	:global(.builder-shell-card--subtle) {
 		background: var(--builder-shell-panel-bg-muted);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-card) {
+		border-color: var(--builder-shell-dark-border);
+		background: var(--builder-shell-dark-panel-raised);
+		color: var(--builder-shell-dark-text);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-card--subtle) {
+		background: var(--builder-shell-dark-panel-subtle);
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-card.active),
+	:global(.builder-panel-shell--dark .builder-shell-card[aria-selected='true']) {
+		border-color: rgba(243, 186, 253, 0.38);
+		background: #222532;
+	}
+
+	:global(.builder-shell-empty-state) {
+		display: grid;
+		place-items: center;
+		gap: 0.45rem;
+		min-block-size: 96px;
+		padding: var(--builder-shell-space-16);
+		border: 1px dashed var(--builder-shell-border-strong);
+		border-radius: var(--builder-shell-radius-lg);
+		background: var(--builder-shell-panel-bg-muted);
+		color: var(--builder-shell-text-muted);
+		text-align: center;
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-empty-state),
+	:global(.builder-panel-shell--dark .builder-shell-card--subtle.builder-shell-lazy-panel__placeholder) {
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.035);
+		color: var(--builder-shell-dark-text-muted);
+	}
+
+	:global(.builder-shell-action-row) {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--builder-shell-space-6);
+	}
+
+	:global(.builder-shell-button--compact),
+	:global(.builder-shell-action-row .builder-shell-button) {
+		min-height: var(--builder-shell-control-height-sm);
+		height: var(--builder-shell-control-height-sm);
+		padding-inline: 0.5rem;
+		font-size: 11px;
 	}
 
 	:global(.builder-shell-icon-badge) {
@@ -316,6 +501,12 @@
 		background: #ffffff;
 		color: var(--builder-shell-gray-600);
 		flex-shrink: 0;
+	}
+
+	:global(.builder-panel-shell--dark .builder-shell-icon-badge) {
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.055);
+		color: var(--builder-shell-dark-text-muted);
 	}
 
 	:global(.builder-shell-scrollbar) {

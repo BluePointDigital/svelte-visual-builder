@@ -247,13 +247,14 @@
 	$: liveAiPreviewFrameSrcdoc = liveAiPreviewSrcdoc || createEmptyLiveAiPreviewSrcdoc();
 	$: previewLoading = renderVersion === 0 || runtimeMeasurementVersion < renderVersion;
 	$: contextBanner = buildContextBanner();
-	$: selectedBounds = state.ui.selectedNodeIds[ 0 ]
+	$: previewPresentationMode = state.ui.shell.panelCollapsed;
+	$: selectedBounds = !previewPresentationMode && state.ui.selectedNodeIds[ 0 ]
 		? state.ui.canvas.index.nodeBoundsById.get( state.ui.selectedNodeIds[ 0 ] )
 		: undefined;
-	$: hoveredBounds = state.ui.hoveredNodeId
+	$: hoveredBounds = !previewPresentationMode && state.ui.hoveredNodeId
 		? state.ui.canvas.index.nodeBoundsById.get( state.ui.hoveredNodeId )
 		: undefined;
-	$: inlineEditingBounds = state.ui.inlineEditing?.nodeId
+	$: inlineEditingBounds = !previewPresentationMode && state.ui.inlineEditing?.nodeId
 		? state.ui.canvas.index.nodeBoundsById.get( state.ui.inlineEditing.nodeId )
 		: undefined;
 	$: selectedLayoutChildBounds = selectedBounds
@@ -800,6 +801,15 @@
 		const document = previewHost.mountTarget;
 
 		const handleClick = ( event: MouseEvent ) => {
+			if ( state.ui.shell.panelCollapsed ) {
+				const linkElement = resolvePreviewLinkElement( event.target );
+				if ( linkElement ) {
+					event.preventDefault();
+					event.stopPropagation();
+				}
+				return;
+			}
+
 			const nodeElement = resolveBuilderNodeElement( event.target );
 			if ( !nodeElement ) {
 				return;
@@ -810,6 +820,10 @@
 		};
 
 		const handlePointerOver = ( event: PointerEvent ) => {
+			if ( state.ui.shell.panelCollapsed ) {
+				return;
+			}
+
 			const nodeElement = resolveBuilderNodeElement( event.target );
 			if ( !nodeElement || resolveBuilderNodeElement( event.relatedTarget ) === nodeElement ) {
 				return;
@@ -819,6 +833,10 @@
 		};
 
 		const handlePointerOut = ( event: PointerEvent ) => {
+			if ( state.ui.shell.panelCollapsed ) {
+				return;
+			}
+
 			const nodeElement = resolveBuilderNodeElement( event.target );
 			if ( !nodeElement || resolveBuilderNodeElement( event.relatedTarget ) === nodeElement ) {
 				return;
@@ -828,6 +846,10 @@
 		};
 
 		const handleDoubleClick = ( event: MouseEvent ) => {
+			if ( state.ui.shell.panelCollapsed ) {
+				return;
+			}
+
 			const nodeElement = resolveBuilderNodeElement( event.target );
 			const nodeId = nodeElement?.dataset.builderNode;
 			const documentId = nodeElement?.dataset.builderDocument ?? editor.engine.getState().activeDocumentId;
@@ -841,6 +863,10 @@
 		};
 
 		const handleContextMenu = ( event: MouseEvent ) => {
+			if ( state.ui.shell.panelCollapsed ) {
+				return;
+			}
+
 			const nodeElement = resolveBuilderNodeElement( event.target );
 			if ( nodeElement ) {
 				openPreviewNodeContextMenu( nodeElement, event );
@@ -863,6 +889,11 @@
 			document.removeEventListener( 'dblclick', handleDoubleClick, true );
 			document.removeEventListener( 'contextmenu', handleContextMenu, true );
 		};
+	}
+
+	function resolvePreviewLinkElement( target: EventTarget | null ): HTMLAnchorElement | undefined {
+		const element = target instanceof Element ? target : undefined;
+		return element?.closest<HTMLAnchorElement>( 'a[href]' ) ?? undefined;
 	}
 
 	function queuePreviewSync() {
@@ -1506,8 +1537,10 @@
 <div
 	bind:this={previewShell}
 	class="builder-preview-shell"
+	class:builder-preview-shell--presentation={previewPresentationMode}
 	data-builder-preview-source={state.ui.preview.source ?? 'manual'}
 	data-builder-preview-device={previewViewportKind}
+	data-builder-preview-mode={previewPresentationMode ? 'presentation' : 'editing'}
 >
 	<div class:expanded={state.ui.shell.responsiveBarVisible} class="builder-preview__responsive-bar">
 		<div class="builder-preview__bar-spacer"></div>
@@ -1631,8 +1664,8 @@
 								</div>
 							</div>
 						{/if}
-						<div class:dragging={Boolean( state.ui.dragSession )} class="builder-preview__overlay">
-							{#if state.ui.dragSession}
+						<div class:dragging={Boolean( state.ui.dragSession ) && !previewPresentationMode} class="builder-preview__overlay">
+							{#if state.ui.dragSession && !previewPresentationMode}
 								{#each coarseDropRegions as region (region.id)}
 									<PreviewDroppableRegion
 										id={region.id}
@@ -1813,6 +1846,12 @@
 		overflow: hidden;
 		color: var(--builder-preview-text);
 		background: linear-gradient(180deg, var(--builder-preview-stage) 0%, var(--builder-preview-stage-deep) 100%);
+	}
+
+	.builder-preview-shell--presentation .builder-preview__overlay,
+	.builder-preview-shell--presentation .builder-preview__action-rail,
+	.builder-preview-shell--presentation .builder-preview__divider-affordance {
+		display: none;
 	}
 
 	.builder-preview__responsive-bar {

@@ -14,6 +14,33 @@ Schema serialization versions are tracked separately in `@builder/schema` as `BU
 
 - No unreleased changes documented yet.
 
+## [0.2.8] - 2026-05-01
+
+### Added
+
+- Added undo and redo actions to the editor footer for quick history navigation from the left shell.
+- Added a collapsed-sidebar preview mode that expands the canvas and suppresses editor selection chrome while keeping preview links disabled to avoid accidental navigation.
+- Added a dedicated full-workspace management view for the Menu shell area so Documents, Site Editor, Preview Presets, Assignments, Components, and Import Diagnostics have room to render.
+- Added Border Radius controls for `Container` and `Grid Container` style panels.
+
+### Changed
+
+- Overhauled Page Settings, History, Menu, and Globals panels with dark-native cards, readable loading states, tighter section rhythm, and consistent shell styling.
+- Moved the commonly used Elements entry to the left-panel header and removed redundant shell/navigation icons from crowded header and footer regions.
+- Tightened container Sizing & Overflow controls by replacing large range sliders with compact value/unit inputs.
+- Tightened Position & Layer controls by grouping Top, Right, Bottom, and Left into a single side-by-side Offset control and removing range sliders.
+- Improved responsive/sidebar layout behavior so collapsed preview mode uses the available canvas area instead of leaving an empty sidebar gutter.
+
+### Fixed
+
+- Fixed light/white padded gutters and unreadable loading cards that appeared inside dark shell panels.
+- Fixed shell tab and panel state mismatches that could leave Globals or management content visible after returning to node editing.
+- Fixed dark select/dropdown readability in updated settings and inspector controls.
+
+### Tests
+
+- Added inspector contract coverage for container Border Radius controls, compact sizing inputs, and grouped slider-free positioning offsets.
+
 ## [0.2.7] - 2026-04-30
 
 ### Added

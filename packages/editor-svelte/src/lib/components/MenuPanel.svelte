@@ -11,10 +11,10 @@
 	export let sections: PanelTabItem[] = defaultSections();
 	export let activeSection = 'documents';
 	export let showTabs = true;
-	export let surface: 'light' | 'dark' = 'light';
+	export let surface: 'light' | 'dark' = 'dark';
 	export let width = '100%';
-	export let bodyPadding = 'var(--builder-shell-space-12)';
-	export let bodyGap = 'var(--builder-shell-space-12)';
+	export let bodyPadding = 'var(--builder-shell-space-10)';
+	export let bodyGap = 'var(--builder-shell-space-10)';
 	export let bodyScrollable = true;
 	export let onChangeSection: ( sectionId: string ) => void = () => {};
 
@@ -67,9 +67,9 @@
 		</svelte:fragment>
 
 		<section class="menu-panel">
-			<div class="menu-panel__intro builder-shell-card builder-shell-card--subtle">
+			<div class="menu-panel__intro">
 				<div class="menu-panel__intro-heading">
-					<span class="builder-shell-icon-badge">
+					<span class="menu-panel__icon">
 						<EditorShellIcon name="menu" title="Menu" />
 					</span>
 					<div>
@@ -110,19 +110,25 @@
 <style>
 	.menu-panel {
 		display: grid;
-		gap: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		color: var(--builder-shell-toolbar-text);
 	}
 
 	.menu-panel__intro {
 		display: grid;
-		gap: var(--builder-shell-space-12);
-		padding: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		padding: var(--builder-shell-space-12);
+		border: 1px solid var(--builder-shell-dark-border);
+		border-radius: var(--builder-shell-radius-lg);
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+			var(--builder-shell-dark-panel-raised);
 	}
 
 	.menu-panel__intro-heading {
 		display: flex;
-		gap: var(--builder-shell-space-12);
-		align-items: start;
+		gap: var(--builder-shell-space-10);
+		align-items: center;
 	}
 
 	.menu-panel__intro h2,
@@ -132,18 +138,41 @@
 
 	.menu-panel__intro p,
 	.menu-panel__intro-actions {
-		color: var(--builder-shell-text-muted);
+		color: var(--builder-shell-toolbar-text-muted);
+	}
+
+	.menu-panel__intro h2 {
+		font-size: 13px;
+		line-height: 1.2;
+	}
+
+	.menu-panel__intro p {
+		margin-top: 2px;
+		font-size: 12px;
+		line-height: 1.35;
+	}
+
+	.menu-panel__icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 auto;
+		inline-size: 28px;
+		block-size: 28px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: var(--builder-shell-radius-lg);
+		background: rgba(255, 255, 255, 0.06);
+		color: #ffffff;
 	}
 
 	.menu-panel__intro-actions {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
 		gap: var(--builder-shell-space-8);
 	}
 
 	.menu-panel__body {
 		display: grid;
-		gap: var(--builder-shell-space-12);
+		gap: var(--builder-shell-space-10);
 	}
 
 	@media (max-width: 900px) {

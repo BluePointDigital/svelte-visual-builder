@@ -56,14 +56,15 @@
 	}
 
 	.builder-panel-shell--dark {
-		--builder-panel-shell-surface: var(--builder-shell-gray-800);
-		--builder-panel-shell-surface-muted: var(--builder-shell-gray-750);
-		--builder-panel-shell-surface-strong: var(--builder-shell-gray-725);
+		--builder-panel-shell-surface: var(--builder-shell-dark-panel);
+		--builder-panel-shell-surface-muted: var(--builder-shell-dark-panel-subtle);
+		--builder-panel-shell-surface-strong: var(--builder-shell-dark-panel-muted);
 		--builder-panel-shell-surface-dark: var(--builder-shell-gray-900);
-		--builder-panel-shell-surface-dark-alt: var(--builder-shell-gray-800);
-		--builder-panel-shell-border: var(--builder-shell-border-dark);
-		--builder-panel-shell-text: var(--builder-shell-toolbar-text);
-		--builder-panel-shell-muted: var(--builder-shell-toolbar-text-muted);
+		--builder-panel-shell-surface-dark-alt: var(--builder-shell-dark-panel);
+		--builder-panel-shell-border: var(--builder-shell-dark-border);
+		--builder-panel-shell-text: var(--builder-shell-dark-text);
+		--builder-panel-shell-muted: var(--builder-shell-dark-text-muted);
+		color-scheme: dark;
 	}
 
 	.builder-panel-shell__appbar:empty,
@@ -106,9 +107,36 @@
 		background: var(--builder-panel-shell-surface);
 	}
 
+	.builder-panel-shell--dark .builder-panel-shell__body {
+		background: var(--builder-shell-dark-panel);
+		color: var(--builder-shell-dark-text);
+	}
+
 	.builder-panel-shell__body.scrollable {
 		overflow: auto;
 		scrollbar-width: thin;
+		scrollbar-color: var(--builder-shell-gray-300) transparent;
+	}
+
+	.builder-panel-shell--dark .builder-panel-shell__body.scrollable {
+		scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+	}
+
+	.builder-panel-shell__body.scrollable::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+
+	.builder-panel-shell__body.scrollable::-webkit-scrollbar-thumb {
+		border: 2px solid transparent;
+		border-radius: 999px;
+		background: var(--builder-shell-gray-300);
+		background-clip: padding-box;
+	}
+
+	.builder-panel-shell--dark .builder-panel-shell__body.scrollable::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.24);
+		background-clip: padding-box;
 	}
 
 	.builder-panel-shell__body:not(.scrollable) {

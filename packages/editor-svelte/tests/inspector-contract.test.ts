@@ -25,6 +25,12 @@ describe( 'inspector contract', () => {
 		expect( styleStack( 'container' ) ).toEqual( [
 			'Background',
 			'Border',
+			'Border Radius',
+		] );
+		expect( styleStack( 'grid-container' ) ).toEqual( [
+			'Background',
+			'Border',
+			'Border Radius',
 		] );
 		expect( styleStack( 'icon-box' ) ).toEqual( [
 			'Box',
@@ -53,6 +59,31 @@ describe( 'inspector contract', () => {
 			'HTML Attributes',
 			'Custom CSS',
 		] );
+	} );
+
+	it( 'keeps container sizing controls compact without range sliders', () => {
+		const registry = createDefaultBuilderRegistry();
+		const sizingSection = registry.elements.get( 'container' )?.contentSections.find( ( section ) => section.id === 'sizing-overflow' );
+		const sizingFields = sizingSection?.fields.filter( ( field ) => [ 'width', 'max_width', 'min_height' ].includes( field.id ) ) ?? [];
+
+		expect( sizingFields ).toHaveLength( 3 );
+		for ( const field of sizingFields ) {
+			expect( field.primitive?.kind ).toBe( 'slider' );
+			expect( field.primitive && 'showRange' in field.primitive ? field.primitive.showRange : undefined ).toBe( false );
+		}
+	} );
+
+	it( 'keeps positioning offsets grouped and slider-free', () => {
+		const registry = createDefaultBuilderRegistry();
+		const positioningSection = registry.elements.get( 'container' )?.advancedSections.find( ( section ) => section.id === 'positioning' );
+		const positioningControls = positioningSection?.controls ?? [];
+		const controlKeys = positioningControls.map( ( control ) => control.key );
+
+		expect( controlKeys ).toEqual( [ 'position', 'inset', 'z-index' ] );
+		expect( positioningControls.find( ( control ) => control.key === 'inset' )?.primitive?.kind ).toBe( 'dimensions' );
+		const zIndexPrimitive = positioningControls.find( ( control ) => control.key === 'z-index' )?.primitive;
+		expect( zIndexPrimitive?.kind ).toBe( 'slider' );
+		expect( zIndexPrimitive && 'showRange' in zIndexPrimitive ? zIndexPrimitive.showRange : undefined ).toBe( false );
 	} );
 
 	it( 'exposes CSS id/class and custom CSS controls for every registered element', () => {

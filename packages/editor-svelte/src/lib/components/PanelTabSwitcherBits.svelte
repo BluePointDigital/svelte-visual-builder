@@ -121,7 +121,8 @@
 		background: var(--builder-shell-panel-bg);
 	}
 
-	:global(.builder-panel-shell--dark) :global(.builder-panel-tab-switcher__tab.active) {
+	:global(.builder-panel-shell--dark) :global(.builder-panel-tab-switcher__tab.active),
+	:global(.builder-panel-shell--dark) :global(.builder-panel-tab-switcher__tab[data-state='active']) {
 		color: var(--builder-shell-toolbar-text);
 		background: var(--builder-shell-gray-800);
 	}

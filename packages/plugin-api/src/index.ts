@@ -1905,10 +1905,25 @@ function layoutControls( family: BuilderRuntimeFamily, type: string ): BuilderSt
 }
 
 function containerSizingOverflowControls(): BuilderStylePropertyDefinition[] {
+	const compactMeasurePrimitive = ( placeholder: string ) => createSliderPrimitive( {
+		min: 0,
+		max: 1200,
+		step: 1,
+		units: layoutUnits,
+		defaultUnit: 'px',
+		showInput: true,
+		showUnit: true,
+		showRange: false,
+		showReset: true,
+		allowCustomUnit: true,
+		placeholder,
+		responsive: true,
+	} );
+
 	return sectionControls(
-		styleProperty( 'width', 'Width', 'text', undefined, { responsive: true } ),
-		styleProperty( 'max-width', 'Max Width', 'text', undefined, { responsive: true } ),
-		styleProperty( 'min-height', 'Min Height', 'text', undefined, { responsive: true } ),
+		styleProperty( 'width', 'Width', 'text', undefined, { responsive: true, placeholder: '100%', primitive: compactMeasurePrimitive( 'auto' ) } ),
+		styleProperty( 'max-width', 'Max Width', 'text', undefined, { responsive: true, placeholder: '1200px', primitive: compactMeasurePrimitive( '1200' ) } ),
+		styleProperty( 'min-height', 'Min Height', 'text', undefined, { responsive: true, placeholder: '40px', primitive: compactMeasurePrimitive( '40' ) } ),
 		styleProperty( 'overflow', 'Overflow', 'select', [
 			{ label: 'Visible', value: 'visible' },
 			{ label: 'Hidden', value: 'hidden' },
@@ -2010,6 +2025,27 @@ function advancedLayoutControls( options: {
 }
 
 function positioningControls(): BuilderStylePropertyDefinition[] {
+	const insetPrimitive = createDimensionsPrimitive( {
+		sides: [ 'top', 'right', 'bottom', 'left' ],
+		units: layoutUnits,
+		defaultUnit: 'px',
+		allowCustomUnit: true,
+		allowNegative: true,
+		linked: false,
+		showLinkedToggle: true,
+		responsive: true,
+	} );
+	const zIndexPrimitive = createSliderPrimitive( {
+		min: 0,
+		max: 500,
+		step: 1,
+		showInput: true,
+		showUnit: false,
+		showRange: false,
+		showReset: true,
+		responsive: true,
+	} );
+
 	return sectionControls(
 		styleProperty( 'position', 'Position', 'select', [
 			{ label: 'Default', value: 'static' },
@@ -2018,11 +2054,8 @@ function positioningControls(): BuilderStylePropertyDefinition[] {
 			{ label: 'Fixed', value: 'fixed' },
 			{ label: 'Sticky', value: 'sticky' },
 		], { responsive: true } ),
-		styleProperty( 'top', 'Top', 'text', undefined, { responsive: true } ),
-		styleProperty( 'right', 'Right', 'text', undefined, { responsive: true } ),
-		styleProperty( 'bottom', 'Bottom', 'text', undefined, { responsive: true } ),
-		styleProperty( 'left', 'Left', 'text', undefined, { responsive: true } ),
-		styleProperty( 'z-index', 'Z-Index', 'number', undefined, { responsive: true } ),
+		styleProperty( 'inset', 'Offset', 'text', undefined, { responsive: true, primitive: insetPrimitive } ),
+		styleProperty( 'z-index', 'Z-Index', 'number', undefined, { responsive: true, primitive: zIndexPrimitive } ),
 	);
 }
 
@@ -2180,6 +2213,7 @@ function createDefaultStyleSections( type: string, family: BuilderRuntimeFamily 
 			return sortSectionInstances( [
 				styleSection( 'background', 'Background', 'background', backgroundControls(), { order: 10, responsive: true, enabledStates: [ 'normal', 'hover' ] } ),
 				styleSection( 'border', 'Border', 'border', borderControls(), { order: 20, responsive: true, enabledStates: [ 'normal', 'hover' ] } ),
+				styleSection( 'border-radius', 'Border Radius', 'border-radius', borderRadiusControls(), { order: 30, responsive: true } ),
 			] );
 		case 'icon-box':
 			return sortSectionInstances( [

@@ -11,10 +11,10 @@
 	export let tabs: PanelTabItem[] = [];
 	export let activeTab = 'classes';
 	export let showTabs = true;
-	export let surface: 'light' | 'dark' = 'light';
+	export let surface: 'light' | 'dark' = 'dark';
 	export let width = '100%';
-	export let bodyPadding = 'var(--builder-shell-space-12)';
-	export let bodyGap = 'var(--builder-shell-space-12)';
+	export let bodyPadding = 'var(--builder-shell-space-10)';
+	export let bodyGap = 'var(--builder-shell-space-10)';
 	export let bodyScrollable = true;
 	export let onChangeTab: ( tabId: string ) => void = () => {};
 </script>
@@ -65,19 +65,29 @@
 <style>
 	.globals-panel-shell {
 		display: grid;
-		gap: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		min-inline-size: 0;
+		padding-block-end: var(--builder-shell-space-12);
+		background: var(--builder-shell-dark-panel);
+		color: var(--builder-shell-toolbar-text);
 	}
 
 	.globals-panel-shell__intro {
 		display: grid;
-		gap: var(--builder-shell-space-12);
-		padding: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		padding: var(--builder-shell-space-12);
+		border-color: var(--builder-shell-dark-border);
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+			var(--builder-shell-dark-panel-raised);
+		color: var(--builder-shell-toolbar-text);
 	}
 
 	.globals-panel-shell__intro-heading {
 		display: flex;
-		gap: var(--builder-shell-space-12);
+		gap: var(--builder-shell-space-10);
 		align-items: start;
+		min-inline-size: 0;
 	}
 
 	.globals-panel-shell__intro h2,
@@ -86,18 +96,38 @@
 	}
 
 	.globals-panel-shell__intro p {
-		color: var(--builder-shell-text-muted);
+		color: var(--builder-shell-toolbar-text-muted);
+		font-size: 12px;
+		line-height: 1.35;
+	}
+
+	.globals-panel-shell__intro h2 {
+		color: var(--builder-shell-toolbar-text);
+		font-size: 13px;
+		line-height: 1.2;
 	}
 
 	.globals-panel-shell__body {
 		display: grid;
-		gap: var(--builder-shell-space-12);
+		gap: var(--builder-shell-space-10);
+		min-inline-size: 0;
 	}
 
 	.globals-panel-shell__intro-actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--builder-shell-space-8);
+		gap: var(--builder-shell-space-6);
+		color: var(--builder-shell-toolbar-text);
+	}
+
+	.globals-panel-shell :global(.builder-shell-icon-badge) {
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.055);
+		color: var(--builder-shell-toolbar-text);
+	}
+
+	.globals-panel-shell :global(.builder-shell-card) {
+		border-color: var(--builder-shell-dark-border);
 	}
 
 	@media (max-width: 900px) {

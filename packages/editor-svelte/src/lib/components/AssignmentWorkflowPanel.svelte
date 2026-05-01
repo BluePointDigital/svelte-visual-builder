@@ -110,14 +110,17 @@
 				</span>
 				<div>
 					<h2>Assignments</h2>
-					<p>Browse route and slot coverage, then compose a new assignment for the active document.</p>
+					<p>Route and slot coverage for the active document.</p>
 				</div>
 			</div>
 			<span class="builder-shell-badge">{projectAssignments.length} total</span>
 		</div>
 
 		<div class="assignment-panel__composer builder-shell-card builder-shell-card--subtle">
-			<h3>Create for {activeDocument.title}</h3>
+			<div class="assignment-panel__section-title">
+				<h3>Create</h3>
+				<span class="builder-shell-badge builder-shell-badge--neutral">{activeDocument.title}</span>
+			</div>
 			<div class="assignment-panel__composer-grid">
 				<label class="builder-shell-field">
 					<span>Slot</span>
@@ -153,12 +156,15 @@
 					<input class="builder-shell-input" bind:value={draftRoutePattern} placeholder="/blog/[slug]" />
 				</label>
 			</div>
-			<button class="builder-shell-button builder-shell-button--primary" type="button" onclick={createAssignment}>Create Assignment</button>
+			<button class="builder-shell-button builder-shell-button--primary assignment-panel__create" type="button" onclick={createAssignment}>Create Assignment</button>
 		</div>
 
 		{#if activeAssignments.length}
 			<div class="assignment-panel__active builder-shell-card builder-shell-card--subtle">
-				<h3>Active Document Coverage</h3>
+				<div class="assignment-panel__section-title">
+					<h3>Active Coverage</h3>
+					<span class="builder-shell-badge builder-shell-badge--neutral">{activeAssignments.length}</span>
+				</div>
 				<div class="assignment-panel__list">
 					{#each activeAssignments as assignment (assignment.id)}
 						<article class:active={activeEntryId === getAssignmentEntryId( assignment )} class="assignment-panel__item builder-shell-card">
@@ -232,32 +238,39 @@
 <style>
 	.assignment-panel {
 		display: grid;
-		gap: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		min-inline-size: 0;
+		color: var(--builder-shell-toolbar-text);
 	}
 
 	.assignment-panel__header,
 	.assignment-panel__heading,
-	.assignment-panel__group header,
-	.assignment-panel__item,
-	.assignment-panel__group-item {
+	.assignment-panel__group header {
 		display: flex;
-		gap: var(--builder-shell-space-16);
-		align-items: start;
+		gap: var(--builder-shell-space-8);
+		align-items: center;
+		min-inline-size: 0;
 	}
 
 	.assignment-panel__header,
-	.assignment-panel__group header,
-	.assignment-panel__item,
-	.assignment-panel__group-item {
+	.assignment-panel__group header {
 		justify-content: space-between;
 	}
 
 	.assignment-panel__heading {
 		flex: 1;
+		align-items: start;
+	}
+
+	.assignment-panel__heading > div {
+		display: grid;
+		gap: var(--builder-shell-space-5);
+		min-inline-size: 0;
 	}
 
 	.assignment-panel__header h2,
 	.assignment-panel__header p,
+	.assignment-panel__section-title h3,
 	.assignment-panel__group h3,
 	.assignment-panel__group span,
 	.assignment-panel__group-item strong,
@@ -270,27 +283,53 @@
 	.assignment-panel__header p,
 	.assignment-panel__group-item small,
 	.assignment-panel__item-meta small {
-		color: var(--builder-shell-text-muted);
+		color: var(--builder-shell-toolbar-text-muted);
+		font-size: 11px;
+		line-height: 1.35;
+		overflow-wrap: anywhere;
+	}
+
+	.assignment-panel__header h2,
+	.assignment-panel__section-title h3,
+	.assignment-panel__group h3 {
+		color: var(--builder-shell-toolbar-text);
+		font-size: 12px;
+		font-weight: 600;
+		line-height: 1.2;
 	}
 
 	.assignment-panel__composer,
 	.assignment-panel__active,
 	.assignment-panel__group {
 		display: grid;
-		gap: var(--builder-shell-space-12);
-		padding: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		padding: var(--builder-shell-space-10);
+		border-color: var(--builder-shell-dark-border);
+		background: var(--builder-shell-dark-panel-raised);
 	}
 
-	.assignment-panel__composer h3,
-	.assignment-panel__active h3 {
-		margin: 0;
+	.assignment-panel__section-title {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--builder-shell-space-8);
+		min-inline-size: 0;
+	}
+
+	.assignment-panel__section-title :global(.builder-shell-badge) {
+		min-inline-size: 0;
+		max-inline-size: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.assignment-panel__composer-grid,
 	.assignment-panel__item-edit {
 		display: grid;
-		grid-template-columns: repeat( 4, minmax( 0, 1fr ) );
-		gap: var(--builder-shell-space-12);
+		grid-template-columns: repeat( auto-fit, minmax( min( 100%, 118px ), 1fr ) );
+		gap: var(--builder-shell-space-8);
+		min-inline-size: 0;
 	}
 
 	.assignment-panel__composer-wide {
@@ -300,48 +339,129 @@
 	.assignment-panel__list,
 	.assignment-panel__groups {
 		display: grid;
-		gap: var(--builder-shell-space-12);
+		gap: var(--builder-shell-space-8);
+		min-inline-size: 0;
 	}
 
 	.assignment-panel__item,
 	.assignment-panel__group-item {
-		padding: var(--builder-shell-space-12);
+		display: grid;
+		gap: var(--builder-shell-space-10);
+		min-inline-size: 0;
+		padding: var(--builder-shell-space-10);
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.035);
 	}
 
 	.assignment-panel__item.active,
 	.assignment-panel__group-item.active {
 		border-color: var(--builder-shell-accent);
-		background: var(--builder-shell-accent-surface);
-	}
-
-	.assignment-panel__item {
-		display: grid;
-		gap: var(--builder-shell-space-12);
+		background: rgba(208, 4, 212, 0.13);
 	}
 
 	.assignment-panel__item-meta,
 	.assignment-panel__group-item > div:first-child {
 		display: grid;
 		gap: var(--builder-shell-space-5);
+		min-inline-size: 0;
+	}
+
+	.assignment-panel__item-meta strong,
+	.assignment-panel__group-item strong {
+		color: var(--builder-shell-toolbar-text);
+		font-size: 12px;
+		line-height: 1.25;
+		overflow-wrap: anywhere;
 	}
 
 	.assignment-panel__actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--builder-shell-space-8);
+		gap: var(--builder-shell-space-6);
+		min-inline-size: 0;
+	}
+
+	.assignment-panel__actions :global(.builder-shell-button) {
+		flex: 1 1 68px;
+		min-inline-size: 0;
+		padding-inline: var(--builder-shell-space-8);
+	}
+
+	.assignment-panel__create {
+		justify-self: stretch;
+	}
+
+	.assignment-panel :global(.builder-shell-card) {
+		box-shadow: none;
+	}
+
+	.assignment-panel :global(.builder-shell-icon-badge) {
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.055);
+		color: var(--builder-shell-toolbar-text);
+	}
+
+	.assignment-panel :global(.builder-shell-badge) {
+		border: 1px solid var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.055);
+		color: var(--builder-shell-toolbar-text-muted);
+	}
+
+	.assignment-panel :global(.builder-shell-button) {
+		border-color: var(--builder-shell-dark-border);
+		background: rgba(255, 255, 255, 0.045);
+		color: var(--builder-shell-toolbar-text);
+	}
+
+	.assignment-panel :global(.builder-shell-button:hover) {
+		border-color: var(--builder-shell-dark-border-strong);
+		background: rgba(255, 255, 255, 0.08);
+	}
+
+	.assignment-panel :global(.builder-shell-button--primary) {
+		border-color: var(--builder-shell-accent);
+		background: var(--builder-shell-accent);
+		color: #ffffff;
+	}
+
+	.assignment-panel :global(.builder-shell-button--danger) {
+		border-color: rgba(220, 38, 38, 0.5);
+		background: rgba(220, 38, 38, 0.16);
+		color: #fecaca;
+	}
+
+	.assignment-panel :global(.builder-shell-field) {
+		min-inline-size: 0;
+	}
+
+	.assignment-panel :global(.builder-shell-field span) {
+		color: var(--builder-shell-toolbar-text-muted);
+	}
+
+	.assignment-panel :global(.builder-shell-input),
+	.assignment-panel :global(.builder-shell-select) {
+		min-inline-size: 0;
+		border-color: var(--builder-shell-dark-border);
+		background-color: rgba(12, 13, 14, 0.55);
+		color: var(--builder-shell-toolbar-text);
+	}
+
+	.assignment-panel :global(.builder-shell-select) {
+		background-image:
+			linear-gradient(45deg, transparent 50%, var(--builder-shell-toolbar-text-muted) 50%),
+			linear-gradient(135deg, var(--builder-shell-toolbar-text-muted) 50%, transparent 50%);
+	}
+
+	.assignment-panel :global(.builder-shell-input::placeholder) {
+		color: rgba(213, 216, 220, 0.5);
 	}
 
 	@media (max-width: 900px) {
-		.assignment-panel__composer-grid,
-		.assignment-panel__item-edit {
-			grid-template-columns: 1fr;
-		}
-
 		.assignment-panel__header,
 		.assignment-panel__heading,
-		.assignment-panel__group header,
-		.assignment-panel__group-item {
+		.assignment-panel__group header {
 			flex-direction: column;
+			align-items: stretch;
 		}
 	}
 </style>

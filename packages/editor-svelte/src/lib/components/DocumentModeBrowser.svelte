@@ -131,7 +131,7 @@
 
 <EditorShellTokens>
 	<section class="document-browser-card">
-		<div class="document-browser-card__header">
+		<div class="document-browser-card__header builder-shell-card">
 			<div class="document-browser-card__heading">
 				<span class="builder-shell-icon-badge">
 					<EditorShellIcon name="document-browser" title="Document browser" />
@@ -148,31 +148,41 @@
 		</div>
 
 		<div class="document-browser-card__groups">
-			{#each groupedDocuments as bucket (bucket.kind)}
-				<section class="document-browser-card__group builder-shell-card builder-shell-card--subtle">
-					<header>
-						<h3>{bucket.label}</h3>
-						<p>{bucket.description}</p>
-					</header>
+			{#if groupedDocuments.length}
+				{#each groupedDocuments as bucket (bucket.kind)}
+					<section class="document-browser-card__group builder-shell-card">
+						<header>
+							<div>
+								<h3>{bucket.label}</h3>
+								<p>{bucket.description}</p>
+							</div>
+							<span class="builder-shell-badge builder-shell-badge--dark">{bucket.documents.length}</span>
+						</header>
 
-					<div class="document-browser-card__list">
-						{#each bucket.documents as document (document.id)}
-							<article class:active={document.id === activeDocumentId} class="document-browser-card__item builder-shell-card">
-								<div class="document-browser-card__meta">
-									<span class="builder-shell-badge builder-shell-badge--neutral">{document.kind}</span>
-									<strong>{document.title}</strong>
-									<small>/{document.slug}</small>
-								</div>
-								<div class="document-browser-card__actions">
-									<button class="builder-shell-button builder-shell-button--primary" type="button" onclick={() => openDocument( document )}>
-										{describeOpenAction( document )}
-									</button>
-								</div>
-							</article>
-						{/each}
-					</div>
-				</section>
-			{/each}
+						<div class="document-browser-card__list">
+							{#each bucket.documents as document (document.id)}
+								<article class:active={document.id === activeDocumentId} class="document-browser-card__item builder-shell-card">
+									<div class="document-browser-card__meta">
+										<span>{document.kind}</span>
+										<strong>{document.title}</strong>
+										<small>/{document.slug}</small>
+									</div>
+									<div class="document-browser-card__actions">
+										<button class="builder-shell-button builder-shell-button--dark" type="button" onclick={() => openDocument( document )}>
+											{describeOpenAction( document )}
+										</button>
+									</div>
+								</article>
+							{/each}
+						</div>
+					</section>
+				{/each}
+			{:else}
+				<div class="document-browser-card__empty builder-shell-card">
+					<strong>No documents match this filter.</strong>
+					<span>Switch the document kind filter to browse the full project.</span>
+				</div>
+			{/if}
 		</div>
 	</section>
 </EditorShellTokens>
@@ -180,7 +190,8 @@
 <style>
 	.document-browser-card {
 		display: grid;
-		gap: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
+		color: var(--builder-shell-toolbar-text);
 	}
 
 	.document-browser-card__header,
@@ -189,14 +200,22 @@
 	.document-browser-card__group header,
 	.document-browser-card__item {
 		display: flex;
-		gap: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-10);
 		align-items: start;
 	}
 
-	.document-browser-card__header,
 	.document-browser-card__group header,
 	.document-browser-card__item {
 		justify-content: space-between;
+	}
+
+	.document-browser-card__header {
+		align-items: center;
+		justify-content: space-between;
+		padding: var(--builder-shell-space-10);
+		border: 1px solid var(--builder-shell-dark-border);
+		border-radius: var(--builder-shell-radius-lg);
+		background: rgba(255, 255, 255, 0.035);
 	}
 
 	.document-browser-card__heading {
@@ -219,19 +238,30 @@
 	.document-browser-card__group p,
 	.document-browser-card__meta small,
 	.document-browser-card__meta span {
-		color: var(--builder-shell-text-muted);
+		color: var(--builder-shell-toolbar-text-muted);
+	}
+
+	.document-browser-card__header h2 {
+		font-size: 13px;
+		line-height: 1.2;
+	}
+
+	.document-browser-card__header p {
+		margin-top: 2px;
+		font-size: 12px;
+		line-height: 1.35;
 	}
 
 	.document-browser-card__status {
 		flex-direction: column;
 		align-items: end;
-		padding: var(--builder-shell-space-10) var(--builder-shell-space-12);
-		border-radius: var(--builder-shell-radius);
-		border: 1px solid var(--builder-shell-bg-dark-alt);
-		background: var(--builder-shell-bg-dark);
-		color: var(--builder-shell-bar-text);
-		box-shadow: var(--builder-shell-shadow-card);
-		min-width: 9rem;
+		gap: 2px;
+		padding: var(--builder-shell-space-8) var(--builder-shell-space-10);
+		border-radius: var(--builder-shell-radius-lg);
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		background: rgba(12, 13, 14, 0.72);
+		color: var(--builder-shell-toolbar-text);
+		min-width: 7.5rem;
 	}
 
 	.document-browser-card__status span {
@@ -243,41 +273,86 @@
 
 	.document-browser-card__groups {
 		display: grid;
-		gap: var(--builder-shell-space-12);
+		gap: var(--builder-shell-space-10);
 	}
 
 	.document-browser-card__group {
 		display: grid;
-		gap: var(--builder-shell-space-12);
-		padding: var(--builder-shell-space-16);
+		gap: var(--builder-shell-space-8);
+		padding: var(--builder-shell-space-10);
+		border: 1px solid var(--builder-shell-dark-border);
+		border-radius: var(--builder-shell-radius-lg);
+		background: var(--builder-shell-dark-panel-raised);
+	}
+
+	.document-browser-card__group h3 {
+		color: var(--builder-shell-toolbar-text);
+		font-size: 12px;
+		line-height: 1.25;
+	}
+
+	.document-browser-card__group p {
+		margin-top: 2px;
+		font-size: 11px;
+		line-height: 1.35;
 	}
 
 	.document-browser-card__list {
 		display: grid;
-		gap: var(--builder-shell-space-10);
+		gap: var(--builder-shell-space-6);
 	}
 
 	.document-browser-card__item {
-		padding: var(--builder-shell-space-12);
+		align-items: center;
+		padding: var(--builder-shell-space-8);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: var(--builder-shell-radius-lg);
+		background: rgba(255, 255, 255, 0.035);
 	}
 
 	.document-browser-card__item.active {
-		border-color: var(--builder-shell-accent);
-		background: var(--builder-shell-accent-surface);
+		border-color: rgba(208, 4, 212, 0.7);
+		background: rgba(208, 4, 212, 0.14);
 	}
 
 	.document-browser-card__meta {
 		display: grid;
-		gap: var(--builder-shell-space-5);
+		gap: 2px;
+		min-width: 0;
 	}
 
 	.document-browser-card__meta span {
 		width: fit-content;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.document-browser-card__meta strong,
+	.document-browser-card__meta small {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.document-browser-card__actions {
 		display: flex;
 		align-items: center;
+	}
+
+	.document-browser-card__empty {
+		display: grid;
+		gap: 4px;
+		padding: var(--builder-shell-space-12);
+		border: 1px dashed var(--builder-shell-dark-border-strong);
+		border-radius: var(--builder-shell-radius-lg);
+		background: rgba(255, 255, 255, 0.03);
+		color: var(--builder-shell-toolbar-text-muted);
+	}
+
+	.document-browser-card__empty strong {
+		color: var(--builder-shell-toolbar-text);
 	}
 
 	@media (max-width: 900px) {

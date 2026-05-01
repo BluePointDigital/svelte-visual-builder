@@ -6,7 +6,7 @@
 	export let saveState = '';
 	export let saveStateTone: 'default' | 'accent' | 'success' | 'warning' | 'danger' = 'default';
 	export let panelOpen = false;
-	export let surface: 'light' | 'dark' = 'light';
+	export let surface: 'light' | 'dark' = 'dark';
 	export let width = '100%';
 	export let bodyPadding = 'var(--builder-shell-space-12)';
 	export let bodyGap = 'var(--builder-shell-space-12)';

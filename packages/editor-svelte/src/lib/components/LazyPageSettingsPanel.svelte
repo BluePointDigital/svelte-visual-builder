@@ -32,10 +32,10 @@
 	export let documentStatus = '';
 	export let documentMode = '';
 	export let routeLabel = '';
-	export let surface: 'light' | 'dark' = 'light';
+	export let surface: 'light' | 'dark' = 'dark';
 	export let width = '100%';
-	export let bodyPadding = 'var(--builder-shell-space-12)';
-	export let bodyGap = 'var(--builder-shell-space-12)';
+	export let bodyPadding = 'var(--builder-shell-space-10)';
+	export let bodyGap = 'var(--builder-shell-space-10)';
 	export let bodyScrollable = true;
 </script>
 

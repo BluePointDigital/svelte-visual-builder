@@ -16,16 +16,14 @@
 	import { builderAiProviderPresets, createDefaultAiSettings } from './ai-core';
 
 	import BuilderContextMenuSurface from './components/BuilderContextMenuSurface.svelte';
+	import BuilderManagementMenu from './components/BuilderManagementMenu.svelte';
 	import EditorPanelShell from './components/EditorPanelShell.svelte';
 	import EditorShellIcon from './components/EditorShellIcon.svelte';
 	import EditorShellTokens from './components/EditorShellTokens.svelte';
 	import ElementsPanel from './components/ElementsPanel.svelte';
 	import AssignmentWorkflowPanel from './components/LazyAssignmentWorkflowPanel.svelte';
-	import ComponentWorkflowPanel from './components/LazyComponentWorkflowPanel.svelte';
-	import DocumentModeBrowser from './components/LazyDocumentModeBrowser.svelte';
 	import GlobalsPanelShell from './components/LazyGlobalsPanelShell.svelte';
 	import HistoryPanelShell from './components/LazyHistoryPanelShell.svelte';
-	import MenuPanel from './components/LazyMenuPanel.svelte';
 	import PageSettingsPanel from './components/LazyPageSettingsPanel.svelte';
 	import RevisionWorkflowPanel from './components/LazyRevisionWorkflowPanel.svelte';
 	import BuilderInspector from './BuilderInspector.svelte';
@@ -145,6 +143,7 @@
 		{ id: 'globals', label: 'Globals' },
 		{ id: 'menu', label: 'Menu' },
 	];
+	const shellNavigationPages = shellPages.filter( ( page ) => page.id !== 'elements' );
 	const shellPageIcons: Record<BuilderShellPage, 'elements' | 'editor' | 'page-settings' | 'history' | 'globals' | 'menu'> = {
 		elements: 'elements',
 		editor: 'editor',
@@ -324,6 +323,8 @@
 			&& left.ui.preview.documentId === right.ui.preview.documentId
 			&& left.ui.preview.assignmentId === right.ui.preview.assignmentId
 			&& left.ui.preview.source === right.ui.preview.source
+			&& left.history.past.length === right.history.past.length
+			&& left.history.future.length === right.history.future.length
 			&& left.ui.componentEditing.context === right.ui.componentEditing.context
 			&& left.ui.componentEditing.componentDocumentId === right.ui.componentEditing.componentDocumentId;
 	}
@@ -1831,9 +1832,6 @@
 		<Pane bind:this={leftPanelPane} collapsible collapsedSize={0} defaultSize={shellLayout.leftPanel.size} minSize={shellLayout.leftPanel.minSize} onResize={handleLeftPanelResize} order={0} class={`builder-shell__panel ${ shellLayout.leftPanel.collapsed ? 'builder-shell__panel--collapsed' : '' }`} aria-label="Builder panel">
 			<div class={`builder-shell__panel-surface ${ shellLayout.leftPanel.collapsed ? 'builder-shell__panel-surface--collapsed' : '' }`}>
 			<header class="builder-shell__panel-header">
-				<button type="button" class="builder-shell__panel-header-button" aria-label="Menu" title="Menu" onclick={() => openShellPage( 'menu' )}>
-					<EditorShellIcon name="menu" title="Menu" />
-				</button>
 				<div class="builder-shell__panel-header-copy">
 					<p class="builder-shell__panel-kicker">{panelHeaderKicker}</p>
 					<h2>{panelHeaderTitle}</h2>
@@ -1843,14 +1841,21 @@
 						Exit
 					</button>
 				{:else}
-					<button type="button" class="builder-shell__panel-header-button" aria-label="Elements Panel" title="Elements Panel" onclick={() => openShellPage( 'elements' )}>
-						<EditorShellIcon name="elements" title="Elements Panel" />
+					<button
+						type="button"
+						class:active={state.ui.shell.leftPanelPage === 'elements'}
+						class="builder-shell__panel-header-button builder-shell__panel-header-button--elements"
+						aria-label="Elements"
+						title="Elements"
+						onclick={() => openShellPage( 'elements' )}
+					>
+						<EditorShellIcon name="elements" title="Elements" />
 					</button>
 				{/if}
 			</header>
 
 				<nav class="builder-shell__panel-pages" aria-label="Panel pages">
-					{#each shellPages as page (page.id)}
+					{#each shellNavigationPages as page (page.id)}
 						<button
 							type="button"
 							class:active={state.ui.shell.leftPanelPage === page.id}
@@ -1947,11 +1952,20 @@
 							documentMode={describeMode( state.ui.mode )}
 							routeLabel={`${ state.ui.preview.pathname } | ${ state.ui.preview.slot ?? 'page' }`}
 						>
-							<div slot="summary" class="builder-shell__menu-card builder-shell__menu-card--compact">
-								<p><strong>Preview source</strong>: {state.ui.preview.source ?? 'manual'}</p>
+							<div slot="summary" class="builder-shell__page-settings-meta">
+								<div>
+									<span>Preview source</span>
+									<strong>{state.ui.preview.source ?? 'manual'}</strong>
+								</div>
 								{#if state.documentSessions[state.activeDocumentId]}
-									<p><strong>Latest draft</strong>: {state.documentSessions[state.activeDocumentId].lastDraftAt ?? 'Not yet'}</p>
-									<p><strong>Latest publish</strong>: {state.documentSessions[state.activeDocumentId].lastPublishedAt ?? 'Not yet'}</p>
+									<div>
+										<span>Latest draft</span>
+										<strong>{state.documentSessions[state.activeDocumentId].lastDraftAt ?? 'Not yet'}</strong>
+									</div>
+									<div>
+										<span>Latest publish</span>
+										<strong>{state.documentSessions[state.activeDocumentId].lastPublishedAt ?? 'Not yet'}</strong>
+									</div>
 								{/if}
 							</div>
 							<section class="builder-shell__menu-card">
@@ -2019,113 +2033,26 @@
 					</div>
 				{:else}
 					<div class="builder-shell__panel-scroll builder-shell__panel-scroll--menu">
-						<MenuPanel sections={menuSections} activeSection={activeMenuSection} onChangeSection={handleMenuSectionChange}>
-							<div slot="summary" class="builder-shell__responsive-meta">
-								<span>{state.project.documents.length} documents</span>
-								<span>{siteEditorEntries.length} site entries</span>
-								<span>{importWarnings.length} import warnings</span>
+						<section class="builder-shell__menu-sidebar-card">
+							<h3>Menu Workspace</h3>
+							<p>Menu now opens in the main canvas area so documents, presets, assignments, components, and diagnostics have room to breathe.</p>
+							<div class="builder-shell__menu-sidebar-stats">
+								<span><strong>{state.project.documents.length}</strong> documents</span>
+								<span><strong>{siteEditorEntries.length}</strong> site entries</span>
+								<span><strong>{importWarnings.length}</strong> warnings</span>
 							</div>
-							<div slot="documents" class="builder-shell__menu-card">
-								<div class="builder-shell__stack-header"><h3>Documents</h3><p>Open pages, parts, popups, and components from the same shell.</p></div>
-								<label class="builder-shell__search">
-									<span>Filter</span>
-									<select bind:value={documentFilter}>
-										<option value="all">all</option>
-										{#each creatableKinds as kind}
-											<option value={kind}>{kind}</option>
-										{/each}
-									</select>
-								</label>
-								<DocumentModeBrowser documents={filteredDocuments} activeDocumentId={state.activeDocumentId} activeMode={state.ui.mode} onOpenDocument={openDocumentFromShell} />
-							</div>
-
-							<svelte:fragment slot="site-editor">
-								{#if siteEditorEntries.length}
-									<section class="builder-shell__menu-card" aria-label="Site-editor entry cards">
-										<div class="builder-shell__stack-header"><h3>Site Editor</h3><p>Header, footer, template, and popup entry flows.</p></div>
-										<div class="builder-shell__entry-grid">
-											{#each siteEditorEntries as entry (entry.id)}
-												<button type="button" class="builder-shell__entry-card" onclick={() => openSiteEditorEntry( entry )}>
-													<strong>{entry.label}</strong>
-													<span>{entry.templateType}</span>
-													<small>{entry.route}</small>
-												</button>
-											{/each}
-										</div>
-									</section>
-								{/if}
-							</svelte:fragment>
-
-							<svelte:fragment slot="preview-presets">
-								{#if previewPresets.length}
-									<section class="builder-shell__menu-card">
-										<div class="builder-shell__stack-header"><h3>Preview Presets</h3><p>Jump the preview frame without leaving the builder.</p></div>
-										<div class="builder-shell__preset-list">
-											{#each previewPresets as preset (preset.id)}
-												<button type="button" class="builder-shell__preset-button" onclick={() => openPreviewPreset( preset )}>
-													<span>{preset.label}</span>
-													<small>{preset.pathname}{preset.query ? `?${preset.query}` : ''}</small>
-												</button>
-											{/each}
-										</div>
-									</section>
-								{/if}
-							</svelte:fragment>
-
-							<section slot="assignments" class="builder-shell__menu-card">
-								<div class="builder-shell__stack-header"><h3>Assignments</h3><p>Theme-builder assignments stay in the same workspace.</p></div>
-								<AssignmentWorkflowPanel
-									{activeDocument}
-									projectAssignments={state.project.themeAssignments}
-									{documentsById}
-									activeEntryId={state.ui.siteEditor.activeEntryId}
-									onPreviewAssignment={previewAssignment}
-									onOpenAssignment={openAssignment}
-									onCreateAssignment={createAssignmentFromShell}
-									onUpdateAssignment={updateAssignment}
-									onUpdateAssignmentRoutePattern={updateAssignmentRoutePattern}
-									onDeleteAssignment={(assignmentId) => editor.dispatch( { type: 'project/assignment/delete', assignmentId } )}
-								/>
-							</section>
-
-							<section slot="components" class="builder-shell__menu-card">
-								<div class="builder-shell__stack-header"><h3>Components</h3><p>Open masters, insert instances, and manage detach or relink flows.</p></div>
-								<ComponentWorkflowPanel documents={state.project.documents} {activeDocument} mode={state.ui.mode} {selectedNode} editingContext={state.ui.componentEditing.context} editingComponentDocumentId={state.ui.componentEditing.componentDocumentId} onOpenDocument={openDocumentFromShell} onInsertComponentInstance={(componentId) => editor.insertComponentInstance( componentId )} onDetachInstance={() => editor.detachComponentInstance( selectedNode?.id )} onRelinkInstance={relinkSelectedComponentInstance} />
-							</section>
-
-							<svelte:fragment slot="import-diagnostics">
-								{#if importWarnings.length}
-									<section class="builder-shell__menu-card">
-										<div class="builder-shell__stack-header"><h3>Import Diagnostics</h3><p>Parity gaps and compat warnings from imported Elementor content.</p></div>
-										<ul class="builder-shell__warning-list">
-											{#each importWarnings as warning, index (`${index}-${warning}`)}
-												<li>{warning}</li>
-											{/each}
-										</ul>
-									</section>
-								{/if}
-							</svelte:fragment>
-						</MenuPanel>
+						</section>
 					</div>
 				{/if}
 			</div>
 
 			<footer class="builder-shell__panel-footer">
 				<div class="builder-shell__panel-tools">
-					<button type="button" class="builder-shell__panel-tool" aria-label="Page Settings" title="Page Settings" onclick={() => openShellPage( 'page-settings' )}>
-						<EditorShellIcon name="settings" title="Page Settings" />
+					<button type="button" class="builder-shell__panel-tool" aria-label="Undo" title="Undo" disabled={state.history.past.length === 0} onclick={() => editor.undo()}>
+						<EditorShellIcon name="undo" title="Undo" />
 					</button>
-					<button type="button" class="builder-shell__panel-tool" aria-label="Structure" title="Structure" onclick={() => editor.toggleNavigator()}>
-						<EditorShellIcon name="navigator" title="Structure" />
-					</button>
-					<button type="button" class="builder-shell__panel-tool" aria-label="History" title="History" onclick={() => openShellPage( 'history' )}>
-						<EditorShellIcon name="history" title="History" />
-					</button>
-					<button type="button" class="builder-shell__panel-tool" aria-label="Responsive Mode" title="Responsive Mode" data-inline-edit-preserve-focus="true" onclick={() => editor.toggleResponsiveBar( state.ui.viewport === 'desktop' )}>
-						<EditorShellIcon name="responsive" title="Responsive Mode" />
-					</button>
-					<button type="button" class="builder-shell__panel-tool" aria-label="Preview Presets" title="Preview Presets" onclick={openPreviewPresetMenu}>
-						<EditorShellIcon name="preview" title="Preview Presets" />
+					<button type="button" class="builder-shell__panel-tool" aria-label="Redo" title="Redo" disabled={state.history.future.length === 0} onclick={() => editor.redo()}>
+						<EditorShellIcon name="redo" title="Redo" />
 					</button>
 				</div>
 				<div class="builder-shell__panel-save">
@@ -2144,14 +2071,54 @@
 					class:builder-shell__stage-body--navigator-floating={shellLayout.navigator.floatingVisible}
 					class="builder-shell__stage-body"
 				>
-				<BuilderPreview
-					{editor}
-					registerSurface={registerPreviewSurface}
-					liveAiPreviewActive={aiCreateRunning}
-					liveAiPreviewSrcdoc={aiCreateRunning ? aiCreatePreviewSrcdoc : ''}
-					liveAiPreviewTitle={aiSession.createPreview?.title ?? 'Not inserted yet'}
-					liveAiPreviewStatus={aiSession.status === 'applying' ? 'Parsing into builder nodes' : aiSession.createPreview?.html ? 'Streaming generated HTML' : 'Waiting for generated HTML'}
-				/>
+				{#if state.ui.shell.leftPanelPage === 'menu'}
+					<BuilderManagementMenu
+						variant="workspace"
+						sections={menuSections}
+						activeSection={activeMenuSection}
+						{documentFilter}
+						{creatableKinds}
+						documents={state.project.documents}
+						{filteredDocuments}
+						{activeDocument}
+						activeDocumentId={state.activeDocumentId}
+						activeMode={state.ui.mode}
+						projectAssignments={state.project.themeAssignments}
+						{documentsById}
+						activeEntryId={state.ui.siteEditor.activeEntryId}
+						{siteEditorEntries}
+						{previewPresets}
+						{importWarnings}
+						{selectedNode}
+						editingContext={state.ui.componentEditing.context}
+						editingComponentDocumentId={state.ui.componentEditing.componentDocumentId}
+						onChangeSection={handleMenuSectionChange}
+						onChangeDocumentFilter={(value) => {
+							documentFilter = value;
+						}}
+						onOpenDocument={openDocumentFromShell}
+						onOpenSiteEditorEntry={openSiteEditorEntry}
+						onOpenPreviewPreset={openPreviewPreset}
+						onPreviewAssignment={previewAssignment}
+						onOpenAssignment={openAssignment}
+						onCreateAssignment={createAssignmentFromShell}
+						onUpdateAssignment={updateAssignment}
+						onUpdateAssignmentRoutePattern={updateAssignmentRoutePattern}
+						onDeleteAssignment={(assignmentId) => editor.dispatch( { type: 'project/assignment/delete', assignmentId } )}
+						onInsertComponentInstance={(componentId) => editor.insertComponentInstance( componentId )}
+						onDetachInstance={() => editor.detachComponentInstance( selectedNode?.id )}
+						onRelinkInstance={relinkSelectedComponentInstance}
+					/>
+				{:else}
+					<BuilderPreview
+						{editor}
+						registerSurface={registerPreviewSurface}
+						liveAiPreviewActive={aiCreateRunning}
+						liveAiPreviewSrcdoc={aiCreateRunning ? aiCreatePreviewSrcdoc : ''}
+						liveAiPreviewTitle={aiSession.createPreview?.title ?? 'Not inserted yet'}
+						liveAiPreviewStatus={aiSession.status === 'applying' ? 'Parsing into builder nodes' : aiSession.createPreview?.html ? 'Streaming generated HTML' : 'Waiting for generated HTML'}
+					/>
+				{/if}
 				{#if shellLayout.navigator.floatingVisible}
 					<div class="builder-shell__navigator-floating"><BuilderNavigator {editor} /></div>
 				{/if}
@@ -2462,8 +2429,7 @@
 		letter-spacing: 0.08em;
 	}
 
-	.builder-shell__context-field input,
-		.builder-shell__search select {
+	.builder-shell__context-field input {
 		width: 100%;
 	}
 
@@ -3075,7 +3041,9 @@
 	}
 
 	:global(.builder-shell__panel--collapsed) {
-		visibility: hidden;
+		display: none !important;
+		inline-size: 0 !important;
+		flex-basis: 0 !important;
 	}
 
 	.builder-shell__panel-surface {
@@ -3091,7 +3059,7 @@
 	}
 
 	.builder-shell__panel-surface--collapsed {
-		visibility: hidden;
+		display: none;
 	}
 
 	.builder-shell__panel-header,
@@ -3142,6 +3110,20 @@
 		color: #ffffff;
 	}
 
+	.builder-shell__panel-header-button--elements {
+		flex: 0 0 auto;
+		border: 1px solid rgba( 255, 255, 255, 0.08 );
+		background: rgba( 255, 255, 255, 0.035 );
+		color: var( --builder-shell-toolbar-text-muted );
+	}
+
+	.builder-shell__panel-header-button--elements.active {
+		border-color: rgba( 208, 4, 212, 0.48 );
+		background: rgba( 208, 4, 212, 0.22 );
+		color: #ffffff;
+		box-shadow: inset 0 -2px 0 var( --builder-shell-accent );
+	}
+
 	.builder-shell__panel-pages {
 		padding: 0 10px;
 		border-bottom: 1px solid var( --builder-shell-border-dark );
@@ -3160,7 +3142,7 @@
 
 	.builder-shell__panel-pages {
 		display: grid;
-		grid-template-columns: repeat( 6, minmax( 0, 1fr ) );
+		grid-template-columns: repeat( 5, minmax( 0, 1fr ) );
 		gap: 2px;
 		inline-size: 100%;
 		padding: 4px 8px;
@@ -3230,11 +3212,44 @@
 		block-size: 100%;
 		overflow: auto;
 		overflow-x: hidden;
+		background: var( --builder-shell-dark-panel );
+		color: var( --builder-shell-toolbar-text );
 	}
 
 	.builder-shell__panel-scroll > * {
 		inline-size: 100%;
 		min-width: 0;
+	}
+
+	.builder-shell__panel-scroll :global(.builder-shell-lazy-panel) {
+		display: grid;
+		gap: 10px;
+		padding: 10px 12px 12px;
+		background: var( --builder-shell-dark-panel );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.builder-shell__panel-scroll :global(.builder-shell-lazy-panel__placeholder) {
+		display: grid;
+		gap: 6px;
+		margin: 0;
+		padding: 12px;
+		border: 1px solid var( --builder-shell-dark-border );
+		border-radius: var( --builder-shell-radius-lg );
+		background:
+			linear-gradient( 180deg, rgba( 255, 255, 255, 0.04 ), rgba( 255, 255, 255, 0 ) ),
+			var( --builder-shell-dark-panel-raised );
+		color: var( --builder-shell-toolbar-text-muted );
+		box-shadow: none;
+	}
+
+	.builder-shell__panel-scroll :global(.builder-shell-lazy-panel__placeholder strong) {
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.builder-shell__panel-scroll :global(.builder-shell-lazy-panel__placeholder p) {
+		margin: 0;
+		color: var( --builder-shell-toolbar-text-muted );
 	}
 
 	.builder-shell__panel-scroll :global(.inspector) {
@@ -3252,6 +3267,75 @@
 		display: grid;
 		gap: 10px;
 		padding: 10px 12px 12px;
+	}
+
+	.builder-shell__menu-sidebar-card,
+	.builder-shell__page-settings-meta {
+		display: grid;
+		gap: 10px;
+		min-width: 0;
+		padding: 12px;
+		border: 1px solid var( --builder-shell-dark-border );
+		border-radius: var( --builder-shell-radius-lg );
+		background:
+			linear-gradient( 180deg, rgba( 255, 255, 255, 0.04 ), rgba( 255, 255, 255, 0 ) ),
+			var( --builder-shell-dark-panel-raised );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.builder-shell__menu-sidebar-card h3,
+	.builder-shell__menu-sidebar-card p,
+	.builder-shell__page-settings-meta span,
+	.builder-shell__page-settings-meta strong {
+		margin: 0;
+	}
+
+	.builder-shell__menu-sidebar-card h3,
+	.builder-shell__page-settings-meta strong {
+		color: var( --builder-shell-toolbar-text );
+		font-size: 13px;
+		line-height: 1.25;
+		overflow-wrap: anywhere;
+	}
+
+	.builder-shell__menu-sidebar-card p,
+	.builder-shell__page-settings-meta span {
+		color: var( --builder-shell-toolbar-text-muted );
+		font-size: 11px;
+		line-height: 1.35;
+	}
+
+	.builder-shell__page-settings-meta div {
+		display: grid;
+		gap: 3px;
+		min-width: 0;
+		padding-block-end: 8px;
+		border-bottom: 1px solid var( --builder-shell-dark-border );
+	}
+
+	.builder-shell__page-settings-meta div:last-child {
+		padding-block-end: 0;
+		border-bottom: 0;
+	}
+
+	.builder-shell__menu-sidebar-stats {
+		display: grid;
+		gap: 6px;
+	}
+
+	.builder-shell__menu-sidebar-stats span {
+		display: flex;
+		justify-content: space-between;
+		gap: 8px;
+		padding: 7px 8px;
+		border: 1px solid var( --builder-shell-dark-border );
+		border-radius: var( --builder-shell-radius-lg );
+		background: rgba( 255, 255, 255, 0.035 );
+		color: var( --builder-shell-toolbar-text-muted );
+	}
+
+	.builder-shell__menu-sidebar-stats strong {
+		color: var( --builder-shell-toolbar-text );
 	}
 
 	:global(.builder-shell__panel-divider) {
@@ -3395,18 +3479,30 @@
 	.builder-shell__entry-card,
 	.builder-shell__preset-button {
 		display: grid;
-		gap: 3px;
+		gap: 4px;
+		min-width: 0;
 		padding: 10px;
-		border: 1px solid var( --builder-shell-border );
-		background: var( --builder-shell-panel-surface );
-		color: var( --builder-shell-heading );
+		border: 1px solid var( --builder-shell-dark-border );
+		border-radius: var( --builder-shell-radius-lg );
+		background: rgba( 255, 255, 255, 0.035 );
+		color: var( --builder-shell-toolbar-text );
 		text-align: left;
 	}
 
 	.builder-shell__entry-card small,
 	.builder-shell__entry-card span,
 	.builder-shell__preset-button small {
-		color: var( --builder-shell-text-muted );
+		overflow: hidden;
+		color: var( --builder-shell-toolbar-text-muted );
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.builder-shell__entry-card span {
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.builder-shell__menu-card,
@@ -3417,14 +3513,125 @@
 	}
 
 	.builder-shell__menu-card {
-		padding: 12px;
-		border: 1px solid var( --builder-shell-border );
-		background: var( --builder-shell-panel-surface );
+		padding: 10px;
+		border: 1px solid var( --builder-shell-dark-border );
+		border-radius: var( --builder-shell-radius-lg );
+		background:
+			linear-gradient( 180deg, rgba( 255, 255, 255, 0.035 ), rgba( 255, 255, 255, 0 ) ),
+			var( --builder-shell-dark-panel-raised );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.builder-shell__menu-card-header {
+		display: grid;
+		grid-template-columns: minmax( 0, 1fr ) minmax( 112px, 0.42fr );
+		gap: 10px;
+		align-items: end;
+	}
+
+	.builder-shell__menu-stats {
+		display: grid;
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+		gap: 6px;
+	}
+
+	.builder-shell__menu-stat {
+		display: grid;
+		gap: 1px;
+		min-width: 0;
+		padding: 7px 8px;
+		border: 1px solid rgba( 255, 255, 255, 0.08 );
+		border-radius: var( --builder-shell-radius-lg );
+		background: rgba( 255, 255, 255, 0.04 );
+	}
+
+	.builder-shell__menu-stat strong {
+		color: #ffffff;
+		font-size: 13px;
+		line-height: 1.1;
+	}
+
+	.builder-shell__menu-stat small {
+		overflow: hidden;
+		color: var( --builder-shell-toolbar-text-muted );
+		font-size: 10px;
+		line-height: 1.2;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.builder-shell__menu-stat--warn {
+		border-color: rgba( 245, 158, 11, 0.36 );
+		background: rgba( 245, 158, 11, 0.1 );
+	}
+
+	.builder-shell__menu-empty {
+		border-style: dashed;
+		background: rgba( 255, 255, 255, 0.025 );
+	}
+
+	.builder-shell__search--inline {
+		gap: 4px;
+	}
+
+	.builder-shell__search--inline span {
+		color: var( --builder-shell-toolbar-text-muted );
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
 	.builder-shell__warning-list {
 		margin: 0;
-		padding-left: 18px;
+		padding: 0;
+		list-style: none;
+	}
+
+	.builder-shell__warning-list li {
+		padding: 8px 10px;
+		border: 1px solid rgba( 245, 158, 11, 0.22 );
+		border-radius: var( --builder-shell-radius-lg );
+		background: rgba( 245, 158, 11, 0.09 );
+		color: #fde68a;
+	}
+
+	.builder-shell__panel-scroll--menu :global(.builder-shell-card),
+	.builder-shell__panel-scroll--menu :global(.assignment-panel__item),
+	.builder-shell__panel-scroll--menu :global(.assignment-panel__group-item),
+	.builder-shell__panel-scroll--menu :global(.component-panel__item) {
+		border-color: var( --builder-shell-dark-border );
+		background: rgba( 255, 255, 255, 0.035 );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.builder-shell__panel-scroll--menu :global(.builder-shell-card--subtle),
+	.builder-shell__panel-scroll--menu :global(.assignment-panel__group),
+	.builder-shell__panel-scroll--menu :global(.component-panel__focus) {
+		background: rgba( 12, 13, 14, 0.38 );
+	}
+
+	.builder-shell__panel-scroll--menu :global(.builder-shell-button) {
+		border-color: rgba( 255, 255, 255, 0.1 );
+		background: rgba( 255, 255, 255, 0.04 );
+		color: var( --builder-shell-toolbar-text );
+	}
+
+	.builder-shell__panel-scroll--menu :global(.builder-shell-button--primary) {
+		border-color: rgba( 208, 4, 212, 0.42 );
+		background: rgba( 208, 4, 212, 0.18 );
+		color: #ffffff;
+	}
+
+	.builder-shell__panel-scroll--menu :global(.builder-shell-button--danger) {
+		border-color: rgba( 220, 38, 38, 0.42 );
+		background: rgba( 220, 38, 38, 0.16 );
+		color: #fecaca;
+	}
+
+	.builder-shell__panel-scroll--menu :global(.builder-shell-badge--neutral) {
+		background: rgba( 255, 255, 255, 0.06 );
+		color: var( --builder-shell-toolbar-text-muted );
 	}
 
 	.builder-shell__save-state {

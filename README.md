@@ -1,6 +1,6 @@
 # Svelte Visual Builder
 
-Version 0.2.7
+Version 0.2.8
 
 A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svelte applications. It provides an Elementor-style editing experience while keeping persistence, media storage, auth, dynamic data, and AI provider settings owned by the host app.
 
@@ -18,6 +18,17 @@ A Svelte 5/SvelteKit visual page builder designed to be embedded into other Svel
 - Dense document and drag/reorder testing, including 200/500-node fixtures.
 
 ## Latest Changes
+
+### Version 0.2.8 - 2026-05-01
+
+- Overhauled the non-canvas shell areas with a dark-native visual system across Page Settings, History, Menu, and Globals.
+- Moved complex Menu management into a full-workspace view so documents, presets, assignments, components, site entries, and import diagnostics have enough room.
+- Added footer undo/redo controls and simplified redundant shell header/footer icons.
+- Added collapsed-sidebar preview mode that expands the canvas, hides editor selection chrome, and disables preview hyperlinks to prevent accidental navigation.
+- Added Border Radius controls for `Container` and `Grid Container`.
+- Tightened container Sizing & Overflow controls by replacing range sliders with compact value/unit inputs.
+- Tightened Position & Layer controls with one grouped Offset control for Top, Right, Bottom, and Left plus compact slider-free Z-Index editing.
+- Fixed dark-panel loading states, white gutters, shell tab drift, and select/dropdown readability.
 
 ### Version 0.2.7 - 2026-04-30
 

@@ -40,6 +40,14 @@
 			viewBox: '0 0 24 24',
 			paths: [ 'M12 7.5v4.5l3 1.5', 'M5 12a7 7 0 1 0 2.1-5', 'M5 5v4h4' ],
 		},
+		undo: {
+			viewBox: '0 0 24 24',
+			paths: [ 'M9 8H5v4', 'M5.5 11.5A7 7 0 1 0 8 6.2' ],
+		},
+		redo: {
+			viewBox: '0 0 24 24',
+			paths: [ 'M15 8h4v4', 'M18.5 11.5A7 7 0 1 1 16 6.2' ],
+		},
 		responsive: {
 			viewBox: '0 0 24 24',
 			paths: [ 'M4 6h16v10H4z', 'M9 20h6', 'M12 16v4' ],
